@@ -1,0 +1,39 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.dsh.notifycleaner'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.dsh.notifycleaner"
+        minSdk 26          // Android 8.0 起；这样就不需要为老系统准备 PNG 图标
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        debug {
+            // 保持默认：用自动生成的 debug 签名，直接能装
+        }
+        release {
+            minifyEnabled false
+            // 不配签名：本工程只出 debug APK
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        // 云编译上别让 lint 的小意见把构建搞挂
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+// 刻意没有 dependencies 块：整个应用只用 Android 框架自带的 API。

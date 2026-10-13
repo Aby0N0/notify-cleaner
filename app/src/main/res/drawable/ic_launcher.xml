@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    应用图标：纯矢量，不依赖任何 PNG。
+    底 = 蓝色方块；上面 = 白铃铛 + 红斜杠（表示"清掉通知"）。
+    用普通矢量而不是自适应图标，是为了让云编译万无一失。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 底 -->
+    <path
+        android:fillColor="#2F6FED"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
+
+    <!-- 铃铛 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,24 C43.5,24 35,32.5 35,43 L35,60 L29,68 L29,72 L79,72 L79,68 L73,60 L73,43 C73,32.5 64.5,24 54,24 Z" />
+
+    <!-- 铃锤 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,76 L62,76 C62,80.4 58.4,84 54,84 C49.6,84 46,80.4 46,76 Z" />
+
+    <!-- 红斜杠 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF5252"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:pathData="M26,26 L82,82" />
+
+</vector>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">通知清理器</string>
+
+    <string name="open_access">打开「通知使用权」设置</string>
+
+    <string name="enabled">启用</string>
+
+    <string name="packages_label">只处理这些应用（包名，逗号分隔；留空 = 所有应用）</string>
+    <string name="packages_hint">com.ss.android.lark,com.larksuite.suite</string>
+
+    <string name="delay_label">收到通知后等多少毫秒再清除</string>
+    <string name="delay_hint">10000</string>
+
+    <string name="title_label">标题必须包含（留空 = 不限制）</string>
+    <string name="title_hint">例如：DSH助手</string>
+
+    <string name="text_label">正文必须包含（留空 = 不限制）</string>
+    <string name="text_hint">一般不用填</string>
+
+    <string name="save">保存</string>
+
+    <string name="tip">说明：本应用不需要常驻通知，也不在后台占资源。\n它靠系统的「通知使用权」工作 —— 授权后由系统负责拉起，划掉多任务也不会失效。</string>
+</resources>

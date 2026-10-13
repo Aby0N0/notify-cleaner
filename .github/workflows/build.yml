@@ -1,0 +1,47 @@
+name: build-apk
+
+# 什么时候自动编译：
+#   1) 你往 main / master 推代码时
+#   2) 也可以在仓库网页上手动点 "Run workflow"
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 取出代码
+        uses: actions/checkout@v4
+
+      - name: 装 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 刻意不用 gradle/actions/setup-gradle：
+      # 本工程没有 gradle wrapper（wrapper 的 jar 是二进制，没法用文本方式提交），
+      # 直接下载指定版本的 Gradle 最确定，不依赖任何 action 的隐含行为。
+      - name: 下载 Gradle 8.9
+        run: |
+          set -e
+          curl -sSL -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q /tmp/gradle.zip -d "$HOME"
+          echo "$HOME/gradle-8.9/bin" >> "$GITHUB_PATH"
+
+      - name: 确认 Gradle 版本
+        run: gradle --version
+
+      - name: 编译 debug APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: notify-cleaner-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 90
