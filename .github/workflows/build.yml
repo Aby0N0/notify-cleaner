@@ -10,14 +10,17 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 刻意钉死 ubuntu-24.04，不用 ubuntu-latest：
+    # GitHub 公告 ubuntu-latest 会在 2026-10-19 迁移到 Ubuntu 26，
+    # 环境一变可能出意外；24.04 是已经验证能编过的环境。
+    runs-on: ubuntu-24.04
 
     steps:
       - name: 取出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 装 JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -39,7 +42,7 @@ jobs:
         run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: 上传 APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: notify-cleaner-apk
           path: app/build/outputs/apk/debug/*.apk
