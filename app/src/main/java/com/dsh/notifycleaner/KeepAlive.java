@@ -26,8 +26,13 @@ import android.provider.Settings;
  */
 public final class KeepAlive {
 
-    /** 看门狗间隔。5 分钟：够快，而且一个只在没连上时才做事的广播，耗电可以忽略。 */
-    public static final long INTERVAL_MS = 5 * 60 * 1000L;
+    /**
+     * 看门狗间隔。
+     *
+     * 原来 5 分钟太慢：被划掉之后最坏要等 5 分钟才恢复，那期间的通知全漏了。
+     * 现在 2 分钟。一次广播只是查两个布尔值，耗电可以忽略。
+     */
+    public static final long INTERVAL_MS = 2 * 60 * 1000L;
 
     private static final int REQUEST_CODE = 4001;
 

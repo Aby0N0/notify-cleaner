@@ -85,11 +85,11 @@ jobs:
         run: |
           set -e
           mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk out/notify-cleaner-v8.0.apk
+          cp app/build/outputs/apk/release/app-release.apk out/notify-cleaner-v9.0.apk
           ls -l out/
           # 打印签名证书指纹：每次编译都应该完全一样，这就是"能覆盖安装"的证明
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort | tail -1)
-          "$APKSIGNER" verify --print-certs out/notify-cleaner-v8.0.apk
+          "$APKSIGNER" verify --print-certs out/notify-cleaner-v9.0.apk
 
       - name: 上传 APK
         uses: actions/upload-artifact@v5

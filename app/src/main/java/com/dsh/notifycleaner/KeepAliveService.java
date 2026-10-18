@@ -1,5 +1,6 @@
 package com.dsh.notifycleaner;
 
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -8,6 +9,7 @@ import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.IBinder;
 
 /**
@@ -32,8 +34,18 @@ import android.os.IBinder;
  */
 public class KeepAliveService extends Service {
 
-    /** 常驻通知的渠道 id。界面上那个「隐藏这条通知」就是跳到这里。 */
-    public static final String CHANNEL_ID = "keepalive";
+    /**
+     * 常驻通知的渠道 id。界面上那个「隐藏这条通知」就是跳到这里。
+     *
+     * ⚠️ 为什么叫 keepalive_v2 而不是 keepalive：
+     * Android 有一条硬规则 —— **渠道一旦创建，重要级别就不能再改**，只能由用户手动改。
+     * v5 时这个渠道是用 IMPORTANCE_MIN 创建的（不显示），后来代码改成 IMPORTANCE_LOW
+     * 对已存在的渠道**完全无效**，用户手机上它一直是"不显示"，等于没有前台服务通知。
+     * 唯一解法是换一个新 id，让系统重新创建一个渠道。
+     */
+    public static final String CHANNEL_ID = "keepalive_v2";
+    /** 旧的错误渠道，创建时顺手删掉。 */
+    private static final String OLD_CHANNEL_ID = "keepalive";
 
     private static final int NOTIFICATION_ID = 1001;
 
@@ -85,6 +97,18 @@ public class KeepAliveService extends Service {
             }
         }
 
+        // 精确闹钟能不能用，直接决定"1 秒后复活"到底准不准
+        try {
+            boolean exact = true;
+            if (Build.VERSION.SDK_INT >= 31) {
+                AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+                exact = am != null && am.canScheduleExactAlarms();
+            }
+            LogStore.add(this, "🛡️ 精确闹钟可用 = " + exact);
+        } catch (Throwable ignored) {
+            // 查不到就算了
+        }
+
         // 被系统杀掉后自动重启（国产系统上不靠谱，主要靠下面的闹钟）
         return START_STICKY;
     }
@@ -126,6 +150,13 @@ public class KeepAliveService extends Service {
                     (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return;
 
+            // 删掉 v5 那个建错了的渠道（MIN 优先级、不显示）
+            try {
+                nm.deleteNotificationChannel(OLD_CHANNEL_ID);
+            } catch (Throwable ignored) {
+                // 删不掉也不影响
+            }
+
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
                     getString(R.string.channel_keepalive),
@@ -137,6 +168,15 @@ public class KeepAliveService extends Service {
             channel.enableLights(false);
             channel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
             nm.createNotificationChannel(channel);
+
+            // 把渠道的实际优先级记下来：如果显示的是 1，说明通知不会显示，前台服务等于白挂
+            NotificationChannel actual = nm.getNotificationChannel(CHANNEL_ID);
+            if (actual != null) {
+                int importance = actual.getImportance();
+                LogStore.add(this, "🛡️ 常驻通知渠道优先级 = " + importance
+                        + (importance <= NotificationManager.IMPORTANCE_MIN
+                        ? "（=1，通知不会显示！这就是被杀的根源）" : "（正常，会显示小图标）"));
+            }
         } catch (Throwable t) {
             LogStore.add(this, "⚠️ 创建通知渠道失败：" + shortMsg(t));
         }
