@@ -1,5 +1,6 @@
 package com.dsh.notifycleaner;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -13,6 +14,9 @@ import android.os.Build;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.view.accessibility.AccessibilityManager;
+
+import java.util.List;
 
 /**
  * 让通知监听服务"活过来"的几件事。
@@ -292,6 +296,47 @@ public final class KeepAlive {
         } catch (Throwable ignored) {
             // 清不掉只是下次节奏慢一点，不影响功能
         }
+    }
+
+    // ==================== 无障碍服务（目前最有希望的一张牌） ====================
+
+    /**
+     * 本应用的无障碍服务是不是已经开启。
+     *
+     * 判断方式：问系统的无障碍管理器要"已启用的服务列表"，看里面有没有我们的组件。
+     * 注意不能只查 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES 这个字符串 ——
+     * 有些 ROM 会写进多个条目、或者带空格的变体，直接比对字符串容易误判。
+     */
+    public static boolean isAccessibilityEnabled(Context context) {
+        try {
+            AccessibilityManager am = (AccessibilityManager)
+                    context.getSystemService(Context.ACCESSIBILITY_SERVICE);
+            if (am == null) return false;
+            List<AccessibilityServiceInfo> enabled =
+                    am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
+            if (enabled == null) return false;
+            String target = context.getPackageName() + "/"
+                    + KeepAliveAccessibilityService.class.getName();
+            for (AccessibilityServiceInfo info : enabled) {
+                if (info == null) continue;
+                String id = info.getId();
+                if (id != null && id.equals(target)) return true;
+            }
+            return false;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** 打开系统的无障碍设置页（各家的类名基本一致，直接跳官方 action 最稳）。 */
+    public static void openAccessibilitySettings(Activity activity) {
+        try {
+            activity.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            return;
+        } catch (Throwable ignored) {
+            // 极少数 ROM 改了入口，退回应用详情页
+        }
+        openAppDetails(activity);
     }
 
     // ==================== 设备管理器（保活的最后一张牌） ====================

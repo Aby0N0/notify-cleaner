@@ -46,6 +46,7 @@ public class SettingsActivity extends Activity {
     private TextView reconnect;
     private TextView deepFixHint;
     private TextView fgsState;
+    private TextView a11yBtn;
     private TextView adminBtn;
     private TextView overlayBtn;
     private TextView batteryBtn;
@@ -68,16 +69,23 @@ public class SettingsActivity extends Activity {
             refreshPermission();
             refreshFgsState();
 
-            // 没连上就持续催，每 2 秒一次，最多 30 次（约 1 分钟）
-            if (isListenerEnabled() && !connectedNow() && rebindTries < 30) {
+            // 没连上就催一下，但**别催太勤**。
+            // 原来每 2 秒 requestRebind() 一次。日志证明这么干反而更糟：
+            // 02:32:31 之后连续 39 秒都没连上，而那段时间我们正在疯狂请求重绑。
+            // 系统的通知监听管理有它自己的重绑节奏，我们催得越凶，它越可能进入退避。
+            // 现在改成每 10 秒催一次、最多 6 次 —— 给系统留出自己重绑的余地。
+            uiTick++;
+            if (isListenerEnabled() && !connectedNow()
+                    && uiTick % 10 == 0 && rebindTries < 6) {
                 rebindTries++;
-                if (rebindTries % 2 == 1) kickService();
+                kickService();
             }
             handler.postDelayed(this, 1000);
         }
     };
 
     private int rebindTries;
+    private int uiTick;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,6 +98,7 @@ public class SettingsActivity extends Activity {
         reconnect = findViewById(R.id.reconnect);
         deepFixHint = findViewById(R.id.deepFixHint);
         fgsState = findViewById(R.id.fgsState);
+        a11yBtn = findViewById(R.id.a11yBtn);
         adminBtn = findViewById(R.id.adminBtn);
         overlayBtn = findViewById(R.id.overlayBtn);
         batteryBtn = findViewById(R.id.batteryBtn);
@@ -143,6 +152,15 @@ public class SettingsActivity extends Activity {
                 return;
             }
             KeepAlive.requestOverlay(this);
+        });
+
+        a11yBtn.setOnClickListener(v -> {
+            if (KeepAlive.isAccessibilityEnabled(this)) {
+                Toast.makeText(this, R.string.a11y_granted, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            LogStore.add(this, "🔧 打开了系统无障碍设置页");
+            KeepAlive.openAccessibilitySettings(this);
         });
 
         batteryBtn.setOnClickListener(v -> {
@@ -294,6 +312,19 @@ public class SettingsActivity extends Activity {
     }
 
     private void refreshKeepAlive() {
+        // 无障碍服务：目前最有希望的一项，放在最前面
+        if (KeepAlive.isAccessibilityEnabled(this)) {
+            a11yBtn.setText(R.string.a11y_granted);
+            a11yBtn.setTextColor(getColor(R.color.primary_dark));
+            a11yBtn.setBackgroundResource(R.drawable.bg_button_soft);
+            a11yBtn.setAlpha(0.7f);
+        } else {
+            a11yBtn.setText(R.string.a11y_grant);
+            a11yBtn.setTextColor(getColor(R.color.white));
+            a11yBtn.setBackgroundResource(R.drawable.bg_button_primary);
+            a11yBtn.setAlpha(1f);
+        }
+
         // 设备管理器：MD 清单里最后一个我们缺的组件，做成最醒目的按钮
         if (KeepAlive.isDeviceAdminActive(this)) {
             adminBtn.setText(R.string.admin_granted);

@@ -34,5 +34,15 @@ public class App extends Application {
         } catch (Throwable ignored) {
             // 排不上还有 JobScheduler 那条路
         }
+
+        // 记一笔无障碍状态：这是判断"到底哪条保活路在起作用"的关键信息。
+        // 如果日志里一直是「未开启」，那保活就只能靠重启，效果必然差一截。
+        try {
+            LogStore.add(this, KeepAlive.isAccessibilityEnabled(this)
+                    ? "♿ 无障碍服务：已开启"
+                    : "♿ 无障碍服务：未开启（建议开启，这是最强的一项）");
+        } catch (Throwable ignored) {
+            // 查不到就算了
+        }
     }
 }

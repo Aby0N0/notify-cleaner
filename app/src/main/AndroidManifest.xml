@@ -95,6 +95,27 @@
         </receiver>
 
         <!--
+            无障碍服务 —— 目前最有希望的一条保活路。
+            抄的是 MacroDroid 清单里的 MacroDroidAccessibilityServiceJellyBean /
+            UIInteractionAccessibilityService：它开了两个无障碍服务。
+            无障碍服务在国产 ROM 上几乎不会被清理（系统必须让它持续工作），
+            这很可能就是 MD「划掉也不死」的真正原因。
+            我们这个不做任何事：不读屏幕、不点东西，只提供一个"必须一直活着"的身份。
+        -->
+        <service
+            android:name=".KeepAliveAccessibilityService"
+            android:exported="true"
+            android:label="@string/a11y_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service" />
+        </service>
+
+        <!--
             透明空窗口。抄的是 MacroDroid 清单里的 com.arlosoft.macrodroid.DummyActivity。
             用户永远看不到它，作用是：被划掉的那一刻把进程重新变成"有界面的应用"，
             从而绕过 Android 12+ "后台不允许启动前台服务"的限制。

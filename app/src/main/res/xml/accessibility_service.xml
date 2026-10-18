@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    无障碍服务配置。
+
+    这里刻意把能力压到最低：
+      · canRetrieveWindowContent = false  → 读不到任何屏幕内容，也读不到输入框里的字
+      · accessibilityEventTypes 只订阅通知状态变化 → 不监听窗口切换，开销可以忽略
+      · 没有任何 flagRequest* 能力 → 不能模拟点击、不能操作界面
+
+    也就是说：这个服务**什么都做不了**，它存在的唯一理由是让系统认为
+    "这个应用有一个必须一直运行的无障碍服务"，从而大幅提高进程的存活优先级。
+
+    MacroDroid 的清单里有两个这样的服务：
+        MacroDroidAccessibilityServiceJellyBean
+        UIInteractionAccessibilityService
+    它那两个是有实际功能的（自动点按），我们这个是纯保活用的空壳。
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeNotificationStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/a11y_desc"
+    android:notificationTimeout="100"
+    android:summary="@string/a11y_summary" />

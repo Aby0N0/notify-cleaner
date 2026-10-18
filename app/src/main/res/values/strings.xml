@@ -70,6 +70,14 @@
     <string name="battery_manual_msg">vivo / OriginOS 的「智能控制」是厂商自己的一套后台管理，和安卓标准的电池优化白名单不是同一个东西，所以那个系统对话框在 vivo 上经常点了也没用。\n\n请手动设置（两种路径任选）：\n\n① 设置 → 电池 → 后台耗电管理 → 找到「通知清理器」→ 选「允许后台高耗电」\n\n② 设置 → 应用与权限 → 应用管理 → 通知清理器 → 耗电管理 → 允许后台高耗电</string>
     <string name="open_app_details">打开应用详情页</string>
 
+    <!-- 无障碍服务：保活的终极手段（MacroDroid 也开着两个） -->
+    <string name="a11y_label">通知清理器 · 后台守护</string>
+    <string name="a11y_desc">用来让系统把本应用当作"必须一直运行"的程序，避免被清理后台时杀掉。不会读取屏幕内容，不会点击任何东西，只订阅通知状态变化事件。</string>
+    <string name="a11y_summary">只用来保活，不读屏幕、不点东西</string>
+    <string name="a11y_grant">② 开启「无障碍」服务（效果最强）</string>
+    <string name="a11y_granted">无障碍服务：已开启 ✓</string>
+    <string name="a11y_hint">为什么这一项最强：系统必须让无障碍服务一直活着才能工作，所以在国产 ROM 上它几乎不会被清理。MacroDroid 就开着两个无障碍服务 —— 这很可能就是它「划掉也不死」的真正原因。\n\n开启方法：点上面的按钮 → 在「已下载的服务 / 已安装的服务」里找到「通知清理器 · 后台守护」→ 打开开关 → 确认系统弹窗。\n\n本应用不会读取屏幕内容，也不会模拟点击。</string>
+
     <string name="channel_keepalive">后台常驻</string>
     <string name="channel_keepalive_desc">让应用在划掉多任务后仍然活着的常驻通知。已静音，但需要保留状态栏图标 —— 藏掉图标会被系统当成没有前台服务而杀掉。</string>
     <string name="notif_title">通知清理器在后台运行</string>

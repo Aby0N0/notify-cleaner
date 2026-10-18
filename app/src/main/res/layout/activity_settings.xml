@@ -146,6 +146,18 @@
                     android:layout_marginTop="6dp"
                     android:text="@string/fgs_checking" />
 
+                <!-- 无障碍：目前最有希望的一项，所以放在最上面 -->
+                <TextView
+                    android:id="@+id/a11yBtn"
+                    style="@style/BtnPrimary"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/a11y_grant" />
+
+                <TextView
+                    style="@style/Label"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/a11y_hint" />
+
                 <TextView
                     android:id="@+id/adminBtn"
                     style="@style/BtnPrimary"
