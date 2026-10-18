@@ -61,6 +61,8 @@ public class KeepAliveService extends Service {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int rebindAttempts;
+    /** 上一次自动深度修复的时间，用来限流（60 秒最多一次，别把系统设置刷爆）。 */
+    private long lastDeepFix;
     /** 那个 1×1 的透明悬浮窗。有了它，系统才真的把本应用当成"有可见窗口"的应用。 */
     private View overlayView;
 
@@ -133,6 +135,31 @@ public class KeepAliveService extends Service {
                 return;
             }
             rebindAttempts++;
+
+            // ===== 自动「深度修复」=====
+            // 这是目前唯一能从应用内部强制系统重新注册通知监听的手段。
+            //
+            // 原理：vivo 划掉进程后，会把本应用从系统的「通知监听注册表」内部摘掉，
+            // 但 Settings.Secure 里那串 enabled_notification_listeners 还留着我们的名字。
+            // 结果就是：界面显示已授权，requestRebind() 却找不到对象，什么也不做。
+            // 唯一能自救的办法是把这个设置项改两次（先摘掉自己、400 毫秒后写回），
+            // 逼系统走一遍"移除 → 重新注册"。
+            //
+            // 前提是拿到 WRITE_SECURE_SETTINGS（签名级权限，只能电脑授权一次）：
+            //     adb shell pm grant com.dsh.notifycleaner android.permission.WRITE_SECURE_SETTINGS
+            // 授予一次之后永久有效，重启手机也不掉，之后这里就能全自动跑了。
+            if (rebindAttempts == 5 && ListenerFix.canFix(KeepAliveService.this)) {
+                long now = System.currentTimeMillis();
+                if (now - lastDeepFix > 60_000L) {
+                    lastDeepFix = now;
+                    LogStore.add(KeepAliveService.this, "🔧 自动深度修复：强制系统重新注册通知监听");
+                    if (ListenerFix.forceReRegister(KeepAliveService.this, handler)) {
+                        handler.postDelayed(this, 1500);
+                        return;
+                    }
+                }
+            }
+
             // 关键的一手（来自 MacroDroid 的 NotificationService.g()）：
             // 如果静态实例是 null，说明我们的服务对象已经不在了 —— 但系统可能仍然
             // 以为这个监听器是"已连接"的，这时 requestRebind() 会静默失败，什么都不会发生。

@@ -68,6 +68,10 @@ public class SettingsActivity extends Activity {
         public void run() {
             refreshPermission();
             refreshFgsState();
+            // 无障碍按钮必须也每秒刷新一次。
+            // 上一版的 bug：只在 onResume 里刷新，所以用户去系统设置打开无障碍、
+            // 再切回来时按钮还是旧的"未开启"——看起来像没生效，其实已经开了。
+            refreshKeepAlive();
 
             // 没连上就催一下，但**别催太勤**。
             // 原来每 2 秒 requestRebind() 一次。日志证明这么干反而更糟：

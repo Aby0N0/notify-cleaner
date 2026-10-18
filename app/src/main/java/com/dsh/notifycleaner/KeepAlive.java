@@ -308,24 +308,43 @@ public final class KeepAlive {
      * 有些 ROM 会写进多个条目、或者带空格的变体，直接比对字符串容易误判。
      */
     public static boolean isAccessibilityEnabled(Context context) {
+        // ① 最可靠的信号：服务自己连上了
+        if (KeepAliveAccessibilityService.isConnected()) return true;
+
+        String cls = KeepAliveAccessibilityService.class.getName();
+
+        // ② 问系统的无障碍管理器
         try {
             AccessibilityManager am = (AccessibilityManager)
                     context.getSystemService(Context.ACCESSIBILITY_SERVICE);
-            if (am == null) return false;
-            List<AccessibilityServiceInfo> enabled =
-                    am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
-            if (enabled == null) return false;
-            String target = context.getPackageName() + "/"
-                    + KeepAliveAccessibilityService.class.getName();
-            for (AccessibilityServiceInfo info : enabled) {
-                if (info == null) continue;
-                String id = info.getId();
-                if (id != null && id.equals(target)) return true;
+            if (am != null) {
+                List<AccessibilityServiceInfo> enabled =
+                        am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
+                if (enabled != null) {
+                    for (AccessibilityServiceInfo info : enabled) {
+                        if (info == null) continue;
+                        String id = info.getId();
+                        // 这里故意用 contains 而不是整串相等：
+                        // 不同 ROM 返回的 ComponentName 写法不一样（有的展开、有的用 ".类名" 简写），
+                        // 直接比字符串会误判成"未开启"—— 上一版就是栽在这上面，
+                        // 明明服务已经连上了，按钮却一直显示未开启。
+                        if (id != null && id.contains(cls)) return true;
+                    }
+                }
             }
-            return false;
-        } catch (Throwable t) {
-            return false;
+        } catch (Throwable ignored) {
+            // 继续走兜底
         }
+
+        // ③ 兜底：直接读系统设置里那串服务列表
+        try {
+            String s = Settings.Secure.getString(context.getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (s != null && s.contains(cls)) return true;
+        } catch (Throwable ignored) {
+            // 读不到就认为没开
+        }
+        return false;
     }
 
     /** 打开系统的无障碍设置页（各家的类名基本一致，直接跳官方 action 最稳）。 */
