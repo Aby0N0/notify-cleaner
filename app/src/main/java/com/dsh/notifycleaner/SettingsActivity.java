@@ -5,6 +5,8 @@ import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -476,11 +478,24 @@ public class SettingsActivity extends Activity {
                 .setTitle(R.string.log_title)
                 .setView(container)
                 .setPositiveButton(R.string.log_close, null)
-                .setNeutralButton(R.string.log_clear, (d, which) -> {
+                .setNeutralButton(R.string.log_copy, (d, which) -> copyToClipboard(LogStore.getAll(this)))
+                .setNegativeButton(R.string.log_clear, (d, which) -> {
                     LogStore.clear(this);
                     refreshLog();
                 })
                 .show();
+    }
+
+    /** 一键把日志复制到剪贴板 —— 比截图方便，也方便直接粘给我。 */
+    private void copyToClipboard(String text) {
+        try {
+            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm == null) return;
+            cm.setPrimaryClip(ClipData.newPlainText("通知清理器日志", text));
+            Toast.makeText(this, "日志已复制到剪贴板", Toast.LENGTH_SHORT).show();
+        } catch (Throwable t) {
+            Toast.makeText(this, "复制失败：" + t, Toast.LENGTH_SHORT).show();
+        }
     }
 
     // ==================== 当前通知 ====================

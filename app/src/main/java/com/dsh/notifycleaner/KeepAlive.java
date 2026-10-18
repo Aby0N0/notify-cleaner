@@ -6,6 +6,7 @@ import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.PowerManager;
 import android.provider.Settings;
@@ -52,6 +53,67 @@ public final class KeepAlive {
         Intent intent = new Intent(context, KeepAliveReceiver.class);
         intent.setAction(KeepAliveReceiver.ACTION_TICK);
         return PendingIntent.getBroadcast(context, REQUEST_CODE, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    // ==================== 被划掉后立刻复活 ====================
+
+    /** 重启用的请求码，和看门狗的错开，免得互相覆盖。 */
+    private static final int RESTART_REQUEST_CODE = 4002;
+    /** 重启频率限制：5 分钟内最多重启 12 次，防止被杀→重启→被杀的死循环把电耗光。 */
+    private static final long RESTART_WINDOW_MS = 5 * 60 * 1000L;
+    private static final int MAX_RESTARTS_PER_WINDOW = 12;
+
+    /**
+     * 排一个「过 delayMs 毫秒把自己重新拉起来」的闹钟。
+     *
+     * 这是本应用能不能像 MacroDroid 一样「划掉还活着」的关键一步。
+     * MacroDroid 的日志里有一行：
+     *     "KeepAlive service task removed - attempting to restart mechanism"
+     * 就是收到 onTaskRemoved（任务被划掉）之后，立刻启动重启机制。
+     *
+     * 闹钟记在系统（system_server）里，进程被杀掉也还在 —— 这是唯一能
+     * 「自己把自己叫醒」的办法。START_STICKY 在国产系统上不靠谱。
+     */
+    public static void scheduleRestart(Context context, long delayMs) {
+        try {
+            SharedPreferences p = context.getApplicationContext()
+                    .getSharedPreferences("notify_cleaner", Context.MODE_PRIVATE);
+            long now = System.currentTimeMillis();
+            long windowStart = p.getLong("restartWindowStart", 0L);
+            int count = p.getInt("restartCount", 0);
+            if (windowStart == 0L || now - windowStart > RESTART_WINDOW_MS) {
+                windowStart = now;
+                count = 0;
+            }
+            if (count >= MAX_RESTARTS_PER_WINDOW) {
+                LogStore.add(context, "⚠️ 重启次数过多，暂停自动重启（系统可能在反复杀）");
+                return;
+            }
+            p.edit()
+                    .putLong("restartWindowStart", windowStart)
+                    .putInt("restartCount", count + 1)
+                    .apply();
+
+            AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (am == null) return;
+            PendingIntent pi = restartPending(context);
+            long triggerAt = now + delayMs;
+            try {
+                // 有精确闹钟权限就用精确的，没有就退回普通闹钟（可能晚几秒，问题不大）
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+            } catch (Throwable ignored) {
+                am.set(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+            }
+        } catch (Throwable t) {
+            LogStore.add(context, "⚠️ 排重启闹钟失败：" + t.getClass().getSimpleName());
+        }
+    }
+
+    private static PendingIntent restartPending(Context context) {
+        Intent intent = new Intent(context, KeepAliveReceiver.class);
+        intent.setAction(KeepAliveReceiver.ACTION_RESTART);
+        return PendingIntent.getBroadcast(context, RESTART_REQUEST_CODE, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 

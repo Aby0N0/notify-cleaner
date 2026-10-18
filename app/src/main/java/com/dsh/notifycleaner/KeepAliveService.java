@@ -72,14 +72,45 @@ public class KeepAliveService extends Service {
             sRunning = false;
             LogStore.add(this, "⚠️ 升为前台服务失败：" + shortMsg(t));
         }
-        // 被系统杀掉后自动重启
+
+        // 进程刚被拉起来时，通知监听服务往往还没绑上，主动请求一次
+        NotifyCleanerService listener = NotifyCleanerService.get();
+        if (listener == null || !listener.isConnected()) {
+            try {
+                NotifyCleanerService.requestRebind(
+                        new ComponentName(this, NotifyCleanerService.class));
+            } catch (Throwable ignored) {
+                // 请求不到就靠后面的看门狗
+            }
+        }
+
+        // 被系统杀掉后自动重启（国产系统上不靠谱，主要靠下面的闹钟）
         return START_STICKY;
+    }
+
+    /**
+     * 用户把任务从最近列表里划掉了。
+     *
+     * 这是整个保活机制里最关键的一个回调 —— MacroDroid 的日志里那行
+     * "KeepAlive service task removed - attempting to restart mechanism"
+     * 就是收到它之后立刻启动重启。
+     *
+     * 做法：排一个 1 秒后触发的系统闹钟。闹钟记在 system_server 里，
+     * 本进程被杀掉也照样会响，响的时候系统会把我们重新拉起来。
+     */
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        LogStore.add(this, "♻️ 任务被划掉，1 秒后自动重启");
+        KeepAlive.scheduleRestart(this, 1000);
+        super.onTaskRemoved(rootIntent);
     }
 
     @Override
     public void onDestroy() {
         sRunning = false;
-        LogStore.add(this, "🛡️ 常驻服务被销毁");
+        LogStore.add(this, "🛡️ 常驻服务被销毁，1 秒后自动重启");
+        // 不管是被谁销毁的，都排一个重启闹钟 —— 宁可多起一次，也不要彻底死掉
+        KeepAlive.scheduleRestart(this, 1000);
         super.onDestroy();
     }
 

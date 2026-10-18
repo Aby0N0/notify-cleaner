@@ -41,7 +41,7 @@
     <string name="fgs_checking">常驻服务：检查中…</string>
     <string name="fgs_running">常驻服务：运行中 ✓</string>
     <string name="fgs_stopped">常驻服务：没在跑 ✗ —— 这就是它会失效的原因</string>
-    <string name="keepalive_hint">这条前台服务是「划掉多任务还活着」的唯一原因，MacroDroid 靠的也是同一招。它会挂一条通知：有状态栏小图标，但静音 —— 不响、不震、不亮屏、不弹横幅。\n\n为什么不彻底藏起来：MacroDroid 的官方文档明确说，把图标藏掉会导致它被系统杀掉。实测也是这样，藏得太干净等于告诉系统「我没有前台服务」。</string>
+    <string name="keepalive_hint">保住它靠两件事：一条前台服务，加上「被划掉之后 1 秒内自动重启」。MacroDroid 靠的也是同一招 —— 它的日志里写着 task removed - attempting to restart mechanism。\n\n通知栏会挂一条静默通知：有状态栏小图标，但不响、不震、不亮屏、不弹横幅。图标可以点下面隐藏掉，但实测藏掉之后更容易被系统杀。</string>
     <string name="keepalive_hide_notif">隐藏这条常驻通知（可能导致被杀）</string>
     <string name="keepalive_hide_warn">提醒：把渠道彻底关掉之后，系统很可能因此把本应用杀掉 —— MacroDroid 的文档也是这么说的。真遇到又开始失效，回这里重新打开就行。</string>
     <string name="keepalive_battery">把本应用设为「不限制后台」</string>
@@ -63,6 +63,7 @@
     <string name="log_view_all">查看全部</string>
     <string name="log_empty">还没有记录。\n授权之后，收到被监控应用的通知，这里就会一行一行记下来。</string>
     <string name="log_clear">清空</string>
+    <string name="log_copy">复制</string>
     <string name="log_close">关闭</string>
 
     <string name="active_title">当前通知</string>

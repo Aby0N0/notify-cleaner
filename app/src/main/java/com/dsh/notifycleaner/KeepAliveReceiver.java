@@ -17,6 +17,8 @@ import android.content.Intent;
 public class KeepAliveReceiver extends BroadcastReceiver {
 
     public static final String ACTION_TICK = "com.dsh.notifycleaner.action.TICK";
+    /** 被划掉之后由闹钟触发，用来把自己重新拉起来。 */
+    public static final String ACTION_RESTART = "com.dsh.notifycleaner.action.RESTART";
 
     @Override
     public void onReceive(Context context, Intent intent) {

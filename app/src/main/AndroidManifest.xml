@@ -12,6 +12,8 @@
     <!-- 前台服务：这是"划掉多任务还活着"的关键，MacroDroid 靠的也是这个 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 被划掉后 1 秒内精确把自己拉回来；拿不到这个权限就退回普通闹钟，会晚几秒 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <application
         android:name=".App"
