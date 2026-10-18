@@ -102,6 +102,8 @@ public class KeepAliveService extends Service {
                 this, 0, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
+        // 注意：系统原生的 Notification.Builder 没有 setSilent()（那是 AndroidX 才有的）。
+        // 静音是靠上面的渠道做到的：IMPORTANCE_MIN + 无声音 + 无振动。
         return new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notify)
                 .setContentTitle(getString(R.string.notif_title))
@@ -109,7 +111,6 @@ public class KeepAliveService extends Service {
                 .setContentIntent(contentIntent)
                 .setOngoing(true)
                 .setShowWhen(false)
-                .setSilent(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .build();
     }
