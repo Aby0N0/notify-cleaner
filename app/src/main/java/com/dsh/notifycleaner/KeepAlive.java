@@ -37,6 +37,16 @@ public final class KeepAlive {
      */
     public static final long INTERVAL_MS = 60 * 1000L;
 
+    /**
+     * 「不健康」时的巡检间隔。
+     *
+     * 服务没在跑、或者通知监听没连上，说明应用正处于残废状态，
+     * 这时候 1 分钟才看一次太慢 —— 中间来的通知全漏。
+     * 改成 10 秒一次，把"发现自己是残废的"延迟压到和 MacroDroid 同一个量级。
+     * 健康的时候仍然是 1 分钟，不会平白耗电。
+     */
+    public static final long RETRY_MS = 10 * 1000L;
+
     private static final int REQUEST_CODE = 4001;
 
     private KeepAlive() {
@@ -233,6 +243,14 @@ public final class KeepAlive {
     private static final int FGS_RETRY_REQUEST_CODE = 4003;
     /** MD 里这个延迟是 4000 毫秒（反编译看到常量 0xfa0）。 */
     static final long FGS_RETRY_DELAY_MS = 4000L;
+    /**
+     * 连续失败多少次之后放慢到 1 分钟一次。
+     *
+     * MD 是"无次数上限、无退避"地每 4 秒重试一次。我们加一个刹车：
+     * 万一这台机器永远不允许（比如用户把应用冻结了），每 4 秒一次会一直耗电。
+     * 20 次 ≈ 80 秒，正常情况早该成功了；超过就退回 1 分钟节奏，但仍然一直试。
+     */
+    private static final int FGS_RETRY_FAST_LIMIT = 20;
 
     /**
      * 4 秒后重试启动前台服务。
@@ -240,20 +258,39 @@ public final class KeepAlive {
      * 抄的是 MacroDroid 的 FGSRetryReceiver。Android 12 起，应用在后台直接
      * startForegroundService() 会抛 ForegroundServiceStartNotAllowedException，
      * 抛了以后如果就此放弃，前台服务就再也起不来了 —— 表现就是「划掉之后彻底死掉」。
-     * MD 的做法是：捕获到之后排一个 4 秒后的广播，再试一次。
+     * MD 的做法是：捕获到之后排一个 4 秒后的广播，再试一次，一直试。
      */
     public static void retryFgsStart(Context context) {
         try {
+            SharedPreferences p = context.getApplicationContext()
+                    .getSharedPreferences("notify_cleaner", Context.MODE_PRIVATE);
+            int count = p.getInt("fgsRetryCount", 0) + 1;
+            p.edit().putInt("fgsRetryCount", count).apply();
+
+            long delay = count <= FGS_RETRY_FAST_LIMIT ? FGS_RETRY_DELAY_MS : 60_000L;
+
             AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
             if (am == null) return;
             Intent intent = new Intent(context, FgsRetryReceiver.class);
             intent.setAction(FgsRetryReceiver.ACTION_RETRY);
             PendingIntent pi = PendingIntent.getBroadcast(context, FGS_RETRY_REQUEST_CODE, intent,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            setWakeup(am, SystemClock.elapsedRealtime() + FGS_RETRY_DELAY_MS, pi);
-            LogStore.add(context, "⏰ 前台服务启动被拒，4 秒后重试");
+            setWakeup(am, SystemClock.elapsedRealtime() + delay, pi);
+            LogStore.add(context, "⏰ 前台服务启动被拒，" + (delay / 1000) + " 秒后重试（第 "
+                    + count + " 次）");
         } catch (Throwable t) {
             LogStore.add(context, "⚠️ 排前台服务重试闹钟失败：" + t.getClass().getSimpleName());
+        }
+    }
+
+    /** 前台服务成功起来了，把重试计数清零。 */
+    public static void resetFgsRetry(Context context) {
+        try {
+            context.getApplicationContext()
+                    .getSharedPreferences("notify_cleaner", Context.MODE_PRIVATE)
+                    .edit().putInt("fgsRetryCount", 0).apply();
+        } catch (Throwable ignored) {
+            // 清不掉只是下次节奏慢一点，不影响功能
         }
     }
 

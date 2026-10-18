@@ -29,7 +29,8 @@ public class KeepAliveReceiver extends BroadcastReceiver {
         // 看门狗已经不是"重复闹钟"了 —— 因为 setInexactRepeating 会被系统大幅推迟（见 KeepAlive.schedule 的注释）。
         // 现在改成"每次响完自己排下一次"，所以这一行必须放在最前面：
         // 万一后面的代码抛异常，至少下一次巡检还排着，不会彻底断掉。
-        KeepAlive.schedule(context);
+        // 这里先按"健康"的 1 分钟排，末尾如果发现不健康会再覆盖成 10 秒。
+        KeepAlive.schedule(context, KeepAlive.INTERVAL_MS);
 
         // 开机 / 应用更新之后，系统会清掉已排的闹钟，上面的 schedule 已经补上了，这里只记一笔
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)
@@ -40,15 +41,25 @@ public class KeepAliveReceiver extends BroadcastReceiver {
         // 每次被叫醒都确保常驻服务在跑（重复调用安全）
         KeepAliveService.start(context);
 
-        // 通知监听服务没连上就主动请求重连
+        // 判断现在是不是"健康"：前台服务在跑 + 通知监听已连上
+        boolean healthy = KeepAliveService.isRunning();
         NotifyCleanerService service = NotifyCleanerService.get();
-        if (service != null && service.isConnected()) return;
-        try {
-            NotifyCleanerService.requestRebind(
-                    new ComponentName(context, NotifyCleanerService.class));
-            LogStore.add(context, "⏰ 看门狗：服务没连上，已请求重连");
-        } catch (Throwable ignored) {
-            // 拿不到就算了，下一轮巡检再试
+        if (service == null || !service.isConnected()) {
+            healthy = false;
+            try {
+                NotifyCleanerService.requestRebind(
+                        new ComponentName(context, NotifyCleanerService.class));
+                LogStore.add(context, "⏰ 看门狗：服务没连上，已请求重连");
+            } catch (Throwable ignored) {
+                // 拿不到就算了，下一轮巡检再试
+            }
+        }
+
+        // 自适应节奏：残废状态 10 秒查一次（尽快发现并修复），健康状态 1 分钟一次（省电）。
+        // MacroDroid 的节奏是 4 秒，我们取 10 秒 —— 比原来"名义 1 分钟、实际几小时"好太多，
+        // 又不至于像 4 秒那样长期耗电。
+        if (!healthy) {
+            KeepAlive.schedule(context, KeepAlive.RETRY_MS);
         }
     }
 }

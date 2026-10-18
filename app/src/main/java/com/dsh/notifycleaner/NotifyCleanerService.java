@@ -3,6 +3,7 @@ package com.dsh.notifycleaner;
 import android.app.Notification;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Looper;
@@ -52,6 +53,28 @@ public class NotifyCleanerService extends NotificationListenerService {
 
     public static NotifyCleanerService get() {
         return sInstance;
+    }
+
+    /**
+     * 强制系统重建这个服务的对象。
+     *
+     * 抄的是 MacroDroid 的 NotificationService.g()：当"静态实例是 null、
+     * 但系统认为这个监听器还连着"的时候，直接 requestRebind() 会**静默失败** ——
+     * 因为系统手里握着的 binder 指向一个已经死掉的对象，它以为自己还连着，就不会重新 bind。
+     * 这时候唯一的解法是自己 startService() 一次，把服务对象重新造出来，
+     * 让系统那个 binder 引用重新变得有效。
+     *
+     * MD 里最多试 5 次。次数限制放在调用方（KeepAliveService 的重试循环）里。
+     */
+    public static void nudge(Context context, int attempt) {
+        if (context == null) return;
+        try {
+            context.startService(new Intent(context, NotifyCleanerService.class));
+            LogStore.add(context, "🔧 强制重建监听服务对象（第 " + attempt + " 次）");
+        } catch (Throwable t) {
+            // Android 8+ 在后台调 startService 会抛 IllegalStateException，很正常
+            LogStore.add(context, "⚠️ 重建监听服务对象失败：" + shortMsg(t));
+        }
     }
 
     private final Handler handler = new Handler(Looper.getMainLooper());

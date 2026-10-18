@@ -133,6 +133,13 @@ public class KeepAliveService extends Service {
                 return;
             }
             rebindAttempts++;
+            // 关键的一手（来自 MacroDroid 的 NotificationService.g()）：
+            // 如果静态实例是 null，说明我们的服务对象已经不在了 —— 但系统可能仍然
+            // 以为这个监听器是"已连接"的，这时 requestRebind() 会静默失败，什么都不会发生。
+            // 必须先 startService 一次把对象重建出来，重绑请求才会被系统当真。
+            if (listener == null && rebindAttempts <= 5) {
+                NotifyCleanerService.nudge(KeepAliveService.this, rebindAttempts);
+            }
             try {
                 NotifyCleanerService.requestRebind(
                         new ComponentName(KeepAliveService.this, NotifyCleanerService.class));
@@ -179,9 +186,13 @@ public class KeepAliveService extends Service {
                 LogStore.add(this, "🛡️ 常驻服务已进入前台，开始保命");
             }
             sRunning = true;
+            KeepAlive.resetFgsRetry(this);
         } catch (Throwable t) {
             sRunning = false;
             LogStore.add(this, "⚠️ 升为前台服务失败：" + shortMsg(t));
+            // 关键：MD 在 onStartCommand 的 catch 里也是立刻排一个 4 秒后的重试。
+            // 只记日志不重试的话，服务就永远起不来了。
+            KeepAlive.retryFgsStart(this);
         }
 
         // 进程刚被拉起来时，通知监听服务往往还没绑上。启动一个反复重试的循环，

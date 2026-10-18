@@ -18,6 +18,14 @@ public class App extends Application {
         // 免得把通知使用权弄丢。
         ListenerFix.restore(this);
 
+        // ===== 复活链的起点（照抄 MacroDroid 的 MacroDroidApplication.onCreate）=====
+        // MD 的做法是：进程一启动，第一件事就是 startForegroundService。
+        // 被系统拒（Android 12+ 后台不允许启动前台服务）也不要紧 ——
+        // KeepAliveService.start() 会捕获异常并排一个 4 秒的精确闹钟重试，一直试到成功为止。
+        // 这条链是"被划掉后秒级复活"的全部来源：只要进程被任何原因拉起来过，
+        // 它就会自己把前台服务也拉起来。
+        KeepAliveService.start(this);
+
         // 每次进程启动都重新排一次看门狗。
         // 看门狗不是"重复闹钟"（那种会被系统大幅推迟，见 KeepAlive.schedule 的注释），
         // 而是"响一次、排下一次"的接力，所以必须有一个地方把它续上 —— 进程启动是最可靠的时机。
