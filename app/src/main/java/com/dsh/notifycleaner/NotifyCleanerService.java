@@ -123,6 +123,9 @@ public class NotifyCleanerService extends NotificationListenerService {
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         if (sbn == null) return;
+        // 本应用自己的常驻通知（前台服务那条）不用看，也不用记 —— 免得日志被它刷屏
+        if (getPackageName().equals(sbn.getPackageName()) && sbn.isOngoing()) return;
+
         Config config = Config.load(this);
         Judgement j = judge(config, sbn);
 

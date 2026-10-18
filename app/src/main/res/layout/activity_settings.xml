@@ -133,9 +133,22 @@
                     android:text="@string/keepalive_hint" />
 
                 <TextView
-                    android:id="@+id/batteryBtn"
+                    android:id="@+id/hideNotifBtn"
                     style="@style/BtnSoft"
                     android:layout_marginTop="12dp"
+                    android:text="@string/keepalive_hide_notif" />
+
+                <TextView
+                    android:id="@+id/hideNotifWarn"
+                    style="@style/Label"
+                    android:layout_marginTop="6dp"
+                    android:visibility="gone"
+                    android:text="@string/keepalive_hide_warn" />
+
+                <TextView
+                    android:id="@+id/batteryBtn"
+                    style="@style/BtnGhost"
+                    android:layout_marginTop="8dp"
                     android:text="@string/keepalive_battery" />
 
                 <TextView

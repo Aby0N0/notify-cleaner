@@ -7,8 +7,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 开机后重新排看门狗闹钟 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- 申请电池优化白名单（这是防被杀最有效的一招） -->
+    <!-- 申请电池优化白名单（防被杀的第二道保险） -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 前台服务：这是"划掉多任务还活着"的关键，MacroDroid 靠的也是这个 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:allowBackup="true"
@@ -28,9 +31,8 @@
         </activity>
 
         <!--
-            全部的本体就是这一个服务。
-            注意：它【不是】前台服务，所以不需要常驻通知。
-            系统（system_server）持有它的绑定，进程被杀后系统会自己重新拉起来。
+            本体：监听通知栏。
+            它由系统绑定，但光靠它不够 —— 进程被 ROM 杀掉后就断了。
         -->
         <service
             android:name=".NotifyCleanerService"
@@ -40,6 +42,22 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
+        </service>
+
+        <!--
+            保命：前台服务。
+            stopWithTask=false 让它在"划掉多任务"时不被一起干掉；
+            START_STICKY 让它被系统杀掉后能自动重启。
+            这条前台服务的通知渠道是 IMPORTANCE_MIN，几乎看不见，也可以在系统设置里关掉。
+        -->
+        <service
+            android:name=".KeepAliveService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the notification listener bound so notifications from watched apps can be auto-dismissed after a delay." />
         </service>
 
         <!--

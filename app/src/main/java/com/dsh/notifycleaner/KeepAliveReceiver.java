@@ -6,11 +6,11 @@ import android.content.Context;
 import android.content.Intent;
 
 /**
- * 看门狗：由系统闹钟叫醒，检查通知监听服务还在不在。
+ * 看门狗：由系统闹钟叫醒，检查该活着的东西还在不在。
  *
  * 为什么需要它：进程被杀之后，应用自己没有任何办法"自己醒过来"。
  * 但 AlarmManager 的闹钟是记在系统里的，进程死了闹钟还在 ——
- * 到点系统会把本进程拉起来执行这个广播，我们就有机会把服务要回来。
+ * 到点系统会把本进程拉起来执行这个广播，我们就有机会把前台服务和通知监听服务都要回来。
  *
  * 同时它也接管开机广播和应用更新广播：这两种情况下系统会清掉已排的闹钟，需要重排。
  */
@@ -29,7 +29,10 @@ public class KeepAliveReceiver extends BroadcastReceiver {
             LogStore.add(context, "⏰ 开机或更新完成，已重新排好看门狗");
         }
 
-        // 不管哪种触发，只要服务没连上就主动请求重连
+        // 每次被叫醒都确保常驻服务在跑（重复调用安全）
+        KeepAliveService.start(context);
+
+        // 通知监听服务没连上就主动请求重连
         NotifyCleanerService service = NotifyCleanerService.get();
         if (service != null && service.isConnected()) return;
         try {

@@ -124,13 +124,24 @@ public class SettingsActivity extends Activity {
             }
         });
 
-        // 看门狗闹钟：进程被杀后，靠它每 5 分钟把服务要回来
+        findViewById(R.id.hideNotifBtn).setOnClickListener(v -> {
+            openChannelSettings();
+            findViewById(R.id.hideNotifWarn).setVisibility(View.VISIBLE);
+            LogStore.add(this, "🔧 打开了常驻通知的渠道设置");
+        });
+
+        // 前台服务：这是"划掉多任务还活着"的关键，MacroDroid 靠的也是同一招
+        KeepAliveService.start(this);
+        // 看门狗闹钟：万一前台服务也被干掉，靠它每 5 分钟把一切要回来
         KeepAlive.schedule(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+
+        // 每次回到界面都确保前台服务在跑（重复调用安全）
+        KeepAliveService.start(this);
 
         // 一进来就把服务要回来，不用用户点「重新连接」。
         // 划掉多任务后系统可能还没重新绑定，所以请求完再观察几秒。
@@ -286,6 +297,31 @@ public class SettingsActivity extends Activity {
         } catch (Throwable t) {
             Toast.makeText(this,
                     "打不开通知使用权设置，请手动到 系统设置 → 通知 → 通知使用权 里找",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * 跳到「后台常驻」这个通知渠道的系统设置页。
+     * 用户可以在那里把这条常驻通知彻底关掉 —— 通知消失，前台服务照跑。
+     */
+    private void openChannelSettings() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+            intent.putExtra(Settings.EXTRA_CHANNEL_ID, KeepAliveService.CHANNEL_ID);
+            startActivity(intent);
+            return;
+        } catch (Throwable ignored) {
+            // 有些 ROM 不认渠道级的设置页，退到应用的通知设置页
+        }
+        try {
+            Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+            startActivity(intent);
+        } catch (Throwable ignored) {
+            Toast.makeText(this,
+                    "打不开通知设置，请手动到 设置 → 通知 里找到本应用",
                     Toast.LENGTH_LONG).show();
         }
     }
