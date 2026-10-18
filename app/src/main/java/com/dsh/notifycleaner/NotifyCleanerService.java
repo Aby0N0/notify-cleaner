@@ -35,8 +35,14 @@ public class NotifyCleanerService extends NotificationListenerService {
     /** 巡检间隔。1 秒足够准，而且只在有待清通知时才跑。 */
     private static final long TICK_MS = 1000L;
 
-    /** 超过这个年龄的通知不动 —— 免得一装上就把几天前的旧通知全清了。 */
-    private static final long MAX_AGE_MS = 5 * 60 * 1000L;
+    /**
+     * 超过这个年龄的通知不动 —— 免得一装上就把几天前的旧通知全清了。
+     *
+     * 取 10 分钟而不是更短，是为了配合 5 分钟的看门狗：
+     * 服务被杀之后，看门狗最晚 5 分钟才把它要回来，那时通知已经放了 5 分钟，
+     * 阈值要是也设 5 分钟就正好卡在边界上，清不掉。
+     */
+    private static final long MAX_AGE_MS = 10 * 60 * 1000L;
 
     /** 同一条通知最多尝试清几次。 */
     private static final int MAX_TRIES = 3;

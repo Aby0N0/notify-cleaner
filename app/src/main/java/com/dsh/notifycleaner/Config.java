@@ -16,6 +16,8 @@ public final class Config {
     /** 飞书（国内版）和 Lark（国际版）的包名。 */
     public static final String DEFAULT_PACKAGES = "com.ss.android.lark,com.larksuite.suite";
     public static final int DEFAULT_DELAY_MS = 10000;
+    /** 默认关键字。飞书通知的标题是「飞书」，机器人名字在正文里，所以关键字要能匹配正文。 */
+    public static final String DEFAULT_KEYWORD = "DSH助手";
 
     /** 总开关。 */
     public final boolean enabled;
@@ -23,18 +25,20 @@ public final class Config {
     public final String[] packages;
     /** 收到通知后等多久再清除（毫秒）。 */
     public final int delayMs;
-    /** 标题必须包含的关键字，空 = 不限制。 */
-    public final String titleKeyword;
-    /** 正文必须包含的关键字，空 = 不限制。 */
-    public final String textKeyword;
+    /**
+     * 关键字：**标题或正文任一处包含它**就算匹配。空 = 不限制。
+     *
+     * 为什么合成一个字段：飞书通知的「标题」是应用名「飞书」，「DSH助手」在正文里。
+     * 第一版分「标题必须包含」「正文必须包含」两个框，用户按直觉填在标题里，
+     * 结果一条都匹配不上 —— 而且界面上完全看不出错在哪。合成一个就不会填错了。
+     */
+    public final String keyword;
 
-    private Config(boolean enabled, String[] packages, int delayMs,
-                   String titleKeyword, String textKeyword) {
+    private Config(boolean enabled, String[] packages, int delayMs, String keyword) {
         this.enabled = enabled;
         this.packages = packages;
         this.delayMs = delayMs;
-        this.titleKeyword = titleKeyword;
-        this.textKeyword = textKeyword;
+        this.keyword = keyword;
     }
 
     public static Config load(Context context) {
@@ -43,18 +47,31 @@ public final class Config {
                 p.getBoolean("enabled", true),
                 split(p.getString("packages", DEFAULT_PACKAGES)),
                 p.getInt("delayMs", DEFAULT_DELAY_MS),
-                p.getString("titleKeyword", ""),
-                p.getString("textKeyword", ""));
+                migrateKeyword(p));
+    }
+
+    /**
+     * 取关键字。老版本存的是 titleKeyword / textKeyword 两个字段，这里做一次性迁移：
+     * 谁有值就用谁，都没有就用默认值。用户不用重新设置。
+     */
+    private static String migrateKeyword(SharedPreferences p) {
+        String keyword = p.getString("keyword", null);
+        if (keyword != null) return keyword.trim();
+
+        String title = p.getString("titleKeyword", "");
+        String text = p.getString("textKeyword", "");
+        if (title != null && !title.trim().isEmpty()) return title.trim();
+        if (text != null && !text.trim().isEmpty()) return text.trim();
+        return DEFAULT_KEYWORD;
     }
 
     public static void save(Context context, boolean enabled, String packages, int delayMs,
-                            String titleKeyword, String textKeyword) {
+                            String keyword) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putBoolean("enabled", enabled)
                 .putString("packages", packages == null ? "" : packages.trim())
                 .putInt("delayMs", delayMs)
-                .putString("titleKeyword", titleKeyword == null ? "" : titleKeyword.trim())
-                .putString("textKeyword", textKeyword == null ? "" : textKeyword.trim())
+                .putString("keyword", keyword == null ? "" : keyword.trim())
                 .apply();
     }
 
@@ -83,14 +100,14 @@ public final class Config {
         return false;
     }
 
-    /** 标题/正文关键字都满足才返回 true；没填的项视为不限制。 */
+    /**
+     * 关键字是否命中。**标题或正文任一处包含就算命中** —— 不再区分填在哪个字段。
+     * 没填关键字 = 不限制，全部命中。
+     */
     public boolean matchesText(CharSequence title, CharSequence text) {
-        if (!titleKeyword.isEmpty()) {
-            if (title == null || !title.toString().contains(titleKeyword)) return false;
-        }
-        if (!textKeyword.isEmpty()) {
-            if (text == null || !text.toString().contains(textKeyword)) return false;
-        }
-        return true;
+        if (keyword.isEmpty()) return true;
+        if (title != null && title.toString().contains(keyword)) return true;
+        if (text != null && text.toString().contains(keyword)) return true;
+        return false;
     }
 }

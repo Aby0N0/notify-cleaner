@@ -31,12 +31,13 @@ import android.widget.Toast;
  * 刻意只用系统自带控件、不引入 AndroidX —— 依赖越少，云编译越不容易出问题。
  *
  * 页面结构从上到下：
- *   1. 顶部：现在到底在不在工作（一行状态胶囊，不用点进去猜）
- *   2. 权限：通知使用权授了没有，没授怎么授
- *   3. 规则：监控哪些应用、等多久、关键字
- *   4. 自检：自己发一条通知，看它会不会自动消失 —— 判断链路通不通的唯一硬办法
- *   5. 日志：最近发生了什么，一行一行记着
- *   6. 当前通知：系统里现在有哪些通知，可以一键清掉
+ *   1. 顶部：现在到底在不在工作（固定不滚动，不用点进去猜）
+ *   2. 权限：通知使用权授了没有；没连上会自动重连，不用手动点
+ *   3. 保活：引导用户把本应用设成"不限制后台"，减少被系统杀掉
+ *   4. 规则：监控哪些应用、等多久、关键字
+ *   5. 自检：自己发一条通知，看它会不会自动消失
+ *   6. 日志：最近发生了什么
+ *   7. 当前通知：系统里现在有哪些通知，可以一键清掉
  */
 public class SettingsActivity extends Activity {
 
@@ -50,15 +51,20 @@ public class SettingsActivity extends Activity {
     private TextView permState;
     private TextView permHint;
     private TextView reconnect;
+    private TextView batteryBtn;
+    private TextView autostartBtn;
+    private TextView keepAliveHint;
     private Switch enabledBox;
     private EditText packagesBox;
     private EditText delayBox;
-    private EditText titleBox;
-    private EditText textBox;
+    private EditText keywordBox;
     private TextView testResult;
     private TextView logView;
     private TextView activeCount;
     private LinearLayout activeList;
+
+    /** 还在等服务的连接结果。> 0 表示"正在连接"，== 0 表示"确实没连上"。 */
+    private int pollTicks;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,11 +75,13 @@ public class SettingsActivity extends Activity {
         permState = findViewById(R.id.permState);
         permHint = findViewById(R.id.permHint);
         reconnect = findViewById(R.id.reconnect);
+        batteryBtn = findViewById(R.id.batteryBtn);
+        autostartBtn = findViewById(R.id.autostartBtn);
+        keepAliveHint = findViewById(R.id.keepAliveHint);
         enabledBox = findViewById(R.id.enabled);
         packagesBox = findViewById(R.id.packages);
         delayBox = findViewById(R.id.delay);
-        titleBox = findViewById(R.id.titleKeyword);
-        textBox = findViewById(R.id.textKeyword);
+        keywordBox = findViewById(R.id.keyword);
         testResult = findViewById(R.id.testResult);
         logView = findViewById(R.id.logView);
         activeCount = findViewById(R.id.activeCount);
@@ -83,8 +91,7 @@ public class SettingsActivity extends Activity {
         enabledBox.setChecked(config.enabled);
         packagesBox.setText(TextUtils.join(",", config.packages));
         delayBox.setText(String.valueOf(config.delayMs));
-        titleBox.setText(config.titleKeyword);
-        textBox.setText(config.textKeyword);
+        keywordBox.setText(config.keyword);
 
         findViewById(R.id.save).setOnClickListener(v -> save());
         findViewById(R.id.openAccess).setOnClickListener(v -> openListenerSettings());
@@ -93,16 +100,49 @@ public class SettingsActivity extends Activity {
         findViewById(R.id.viewLog).setOnClickListener(v -> showFullLog());
         findViewById(R.id.refreshActive).setOnClickListener(v -> refreshActive());
         findViewById(R.id.clearActive).setOnClickListener(v -> clearAllActive());
+
+        batteryBtn.setOnClickListener(v -> {
+            if (KeepAlive.isIgnoringBatteryOptimizations(this)) {
+                Toast.makeText(this, R.string.keepalive_battery_ok, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            KeepAlive.requestIgnoreBatteryOptimizations(this);
+        });
+
+        autostartBtn.setOnClickListener(v -> {
+            boolean opened = KeepAlive.openAutostartSettings(this);
+            if (opened) {
+                keepAliveHint.setVisibility(View.GONE);
+                LogStore.add(this, "🔧 打开了系统自启动管理页");
+            } else {
+                keepAliveHint.setText(R.string.keepalive_autostart_fail);
+                keepAliveHint.setVisibility(View.VISIBLE);
+                LogStore.add(this, "🔧 这台手机没有通用的自启动页面");
+            }
+        });
+
+        // 看门狗闹钟：进程被杀后，靠它每 5 分钟把服务要回来
+        KeepAlive.schedule(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+
+        // 一进来就把服务要回来，不用用户点「重新连接」。
+        // 划掉多任务后系统可能还没重新绑定，所以请求完再观察几秒。
+        if (isListenerEnabled() && !connectedNow()) {
+            kickService();
+            pollTicks = 5;
+            pollConnection();
+        } else {
+            pollTicks = 0;
+        }
+
+        refreshKeepAlive();
         refreshPermission();
         refreshLog();
         refreshActive();
-        // 刚从系统设置页回来时，服务可能还要几百毫秒才连上，稍后再看一眼
-        handler.postDelayed(this::refreshPermission, 1500);
     }
 
     @Override
@@ -111,12 +151,42 @@ public class SettingsActivity extends Activity {
         super.onDestroy();
     }
 
-    // ==================== 状态区 ====================
+    // ==================== 连接状态 ====================
+
+    private boolean connectedNow() {
+        NotifyCleanerService service = NotifyCleanerService.get();
+        return service != null && service.isConnected();
+    }
+
+    private void kickService() {
+        try {
+            NotifyCleanerService.requestRebind(new ComponentName(this, NotifyCleanerService.class));
+        } catch (Throwable ignored) {
+            // 请求不到就等看门狗
+        }
+    }
+
+    /** 每 600 毫秒看一眼连上没有，最多看 5 次（约 3 秒）。 */
+    private void pollConnection() {
+        if (pollTicks <= 0) {
+            refreshPermission();
+            return;
+        }
+        if (connectedNow()) {
+            pollTicks = 0;
+            refreshPermission();
+            refreshActive();
+            return;
+        }
+        pollTicks--;
+        handler.postDelayed(() -> {
+            pollConnection();
+            refreshPermission();
+        }, 600);
+    }
 
     private void refreshPermission() {
         boolean granted = isListenerEnabled();
-        NotifyCleanerService service = NotifyCleanerService.get();
-        boolean connected = service != null && service.isConnected();
         Config config = Config.load(this);
 
         if (!granted) {
@@ -125,24 +195,29 @@ public class SettingsActivity extends Activity {
             permState.setTextColor(getColor(R.color.danger));
             permHint.setText(R.string.perm_hint_bad);
             reconnect.setVisibility(View.GONE);
-        } else if (!connected) {
-            setChip(R.drawable.bg_chip_bad, R.color.danger, getString(R.string.chip_no_service));
-            permState.setText(R.string.perm_ok);
-            permState.setTextColor(getColor(R.color.primary));
-            permHint.setText(R.string.perm_hint_no_service);
-            reconnect.setVisibility(View.VISIBLE);
-        } else if (!config.enabled) {
-            setChip(R.drawable.bg_chip_ok, R.color.primary_dark, getString(R.string.chip_off));
-            permState.setText(R.string.perm_ok);
-            permState.setTextColor(getColor(R.color.primary));
+            return;
+        }
+
+        permState.setText(R.string.perm_ok);
+        permState.setTextColor(getColor(R.color.primary));
+
+        if (connectedNow()) {
+            reconnect.setVisibility(View.GONE);
             permHint.setText(R.string.perm_hint_ok);
+            setChip(R.drawable.bg_chip_ok, R.color.primary_dark,
+                    getString(config.enabled ? R.string.chip_ok : R.string.chip_off));
+            return;
+        }
+
+        permHint.setText(R.string.perm_hint_no_service);
+        if (pollTicks > 0) {
+            // 还在自动重连，先别报警
+            setChip(R.drawable.bg_chip_neutral, R.color.text_sub,
+                    getString(R.string.chip_connecting));
             reconnect.setVisibility(View.GONE);
         } else {
-            setChip(R.drawable.bg_chip_ok, R.color.primary_dark, getString(R.string.chip_ok));
-            permState.setText(R.string.perm_ok);
-            permState.setTextColor(getColor(R.color.primary));
-            permHint.setText(R.string.perm_hint_ok);
-            reconnect.setVisibility(View.GONE);
+            setChip(R.drawable.bg_chip_bad, R.color.danger, getString(R.string.chip_no_service));
+            reconnect.setVisibility(View.VISIBLE);
         }
     }
 
@@ -150,6 +225,16 @@ public class SettingsActivity extends Activity {
         headerChip.setBackgroundResource(bgRes);
         headerChip.setTextColor(getColor(colorRes));
         headerChip.setText(text);
+    }
+
+    private void refreshKeepAlive() {
+        if (KeepAlive.isIgnoringBatteryOptimizations(this)) {
+            batteryBtn.setText(R.string.keepalive_battery_ok);
+            batteryBtn.setAlpha(0.65f);
+        } else {
+            batteryBtn.setText(R.string.keepalive_battery);
+            batteryBtn.setAlpha(1f);
+        }
     }
 
     /**
@@ -182,8 +267,7 @@ public class SettingsActivity extends Activity {
                 enabledBox.isChecked(),
                 packagesBox.getText().toString(),
                 delay,
-                titleBox.getText().toString(),
-                textBox.getText().toString());
+                keywordBox.getText().toString());
 
         delayBox.setText(String.valueOf(delay));
         Toast.makeText(this, R.string.save_done, Toast.LENGTH_SHORT).show();
@@ -203,14 +287,11 @@ public class SettingsActivity extends Activity {
     }
 
     private void forceReconnect() {
-        try {
-            NotifyCleanerService.requestRebind(new ComponentName(this, NotifyCleanerService.class));
-            LogStore.add(this, "🔁 手动请求重新连接");
-            Toast.makeText(this, "已请求重连", Toast.LENGTH_SHORT).show();
-        } catch (Throwable t) {
-            Toast.makeText(this, "重连失败：" + t, Toast.LENGTH_LONG).show();
-        }
-        handler.postDelayed(this::refreshPermission, 800);
+        kickService();
+        LogStore.add(this, "🔁 手动请求重新连接");
+        Toast.makeText(this, "已请求重连", Toast.LENGTH_SHORT).show();
+        pollTicks = 5;
+        pollConnection();
         refreshLog();
     }
 

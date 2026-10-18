@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 只为了在「等 10 秒」这段时间里让 CPU 别睡，保证巡检能准时跑 -->
+    <!-- 巡检期间让 CPU 别睡，保证到点能清 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 自检要自己发一条通知，Android 13 起需要这个 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 开机后重新排看门狗闹钟 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 申请电池优化白名单（这是防被杀最有效的一招） -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:allowBackup="true"
@@ -37,6 +41,19 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!--
+            看门狗。由系统闹钟叫醒，进程死了也能被拉起来。
+            同时接管开机广播和应用更新广播 —— 这两种情况下系统会清掉已排的闹钟。
+        -->
+        <receiver
+            android:name=".KeepAliveReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

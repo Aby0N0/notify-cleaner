@@ -2,6 +2,13 @@ plugins {
     id 'com.android.application'
 }
 
+// ---------- 读取固定签名密钥的配置 ----------
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace 'com.dsh.notifycleaner'
     compileSdk 35
@@ -10,17 +17,29 @@ android {
         applicationId "com.dsh.notifycleaner"
         minSdk 26          // Android 8.0 起；这样就不需要为老系统准备 PNG 图标
         targetSdk 35
-        versionCode 2
-        versionName "2.0"
+        versionCode 3
+        versionName "3.0"
+    }
+
+    // 固定签名：debug 和 release 都用同一个密钥，保证新版本能覆盖安装旧版本
+    signingConfigs {
+        release {
+            storeFile rootProject.file(keystoreProperties['storeFile'] ?: 'keystore/notify-cleaner.p12')
+            storeType keystoreProperties['storeType'] ?: 'pkcs12'
+            storePassword keystoreProperties['storePassword'] ?: ''
+            keyAlias keystoreProperties['keyAlias'] ?: 'notifycleaner'
+            keyPassword keystoreProperties['keyPassword'] ?: ''
+        }
     }
 
     buildTypes {
         debug {
-            // 保持默认：用自动生成的 debug 签名，直接能装
+            // 也走固定签名，免得「这次装的是 debug、下次装的是 release」互相冲突
+            signingConfig signingConfigs.release
         }
         release {
             minifyEnabled false
-            // 不配签名：本工程只出 debug APK
+            signingConfig signingConfigs.release
         }
     }
 

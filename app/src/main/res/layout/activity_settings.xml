@@ -114,6 +114,43 @@
                     android:visibility="gone" />
             </LinearLayout>
 
+            <!-- 保活 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    style="@style/CardTitle"
+                    android:text="@string/keepalive_title" />
+
+                <TextView
+                    style="@style/Label"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/keepalive_hint" />
+
+                <TextView
+                    android:id="@+id/batteryBtn"
+                    style="@style/BtnSoft"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/keepalive_battery" />
+
+                <TextView
+                    android:id="@+id/autostartBtn"
+                    style="@style/BtnGhost"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/keepalive_autostart" />
+
+                <TextView
+                    android:id="@+id/keepAliveHint"
+                    style="@style/Label"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
             <!-- 规则 -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -164,26 +201,19 @@
                 <TextView
                     style="@style/Label"
                     android:layout_marginTop="12dp"
-                    android:text="@string/title_label" />
+                    android:text="@string/keyword_label" />
 
                 <EditText
-                    android:id="@+id/titleKeyword"
+                    android:id="@+id/keyword"
                     style="@style/Input"
                     android:layout_marginTop="6dp"
-                    android:hint="@string/title_hint"
+                    android:hint="@string/keyword_hint"
                     android:inputType="text" />
 
                 <TextView
                     style="@style/Label"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/text_label" />
-
-                <EditText
-                    android:id="@+id/textKeyword"
-                    style="@style/Input"
                     android:layout_marginTop="6dp"
-                    android:hint="@string/text_hint"
-                    android:inputType="text" />
+                    android:text="@string/keyword_explain" />
 
                 <TextView
                     android:id="@+id/save"

@@ -38,13 +38,33 @@ jobs:
       - name: 确认 Gradle 版本
         run: gradle --version
 
-      - name: 编译 debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+      # 先单独验一遍密钥能不能被 Java 读出来。
+      # 读不出来就在这一步失败，报错很直接；不然会淹没在 Gradle 的一大堆输出里。
+      - name: 检查签名密钥
+        run: |
+          set -e
+          PASS=$(grep '^storePassword=' keystore.properties | cut -d= -f2)
+          ALIAS=$(grep '^keyAlias=' keystore.properties | cut -d= -f2)
+          keytool -list -keystore keystore/notify-cleaner.p12 -storetype pkcs12 \
+            -storepass "$PASS" -alias "$ALIAS"
+
+      - name: 编译 release APK
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: 改名并确认签名
+        run: |
+          set -e
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/notify-cleaner-v3.0.apk
+          ls -l out/
+          # 打印签名证书指纹：每次编译都应该完全一样，这就是"能覆盖安装"的证明
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort | tail -1)
+          "$APKSIGNER" verify --print-certs out/notify-cleaner-v3.0.apk
 
       - name: 上传 APK
         uses: actions/upload-artifact@v5
         with:
           name: notify-cleaner-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: out/*.apk
           if-no-files-found: error
           retention-days: 90

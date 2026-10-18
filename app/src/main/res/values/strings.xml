@@ -8,6 +8,7 @@
     <string name="chip_no_perm">● 未授权，无法工作</string>
     <string name="chip_off">● 已暂停</string>
     <string name="chip_no_service">● 已授权，但服务没连上</string>
+    <string name="chip_connecting">● 正在连接服务…</string>
 
     <string name="perm_title">通知使用权</string>
     <string name="perm_checking">检查中</string>
@@ -16,7 +17,7 @@
     <string name="perm_hint_unknown">这个权限是本应用唯一需要的东西。系统靠它把通知交给本应用处理。</string>
     <string name="perm_hint_bad">还没授权，所以现在什么都不会发生。点下面的按钮，在系统列表里找到「通知清理器」并打开。</string>
     <string name="perm_hint_ok">已授权，服务在正常运行。</string>
-    <string name="perm_hint_no_service">权限是给了，但系统还没把服务连起来。点「重新连接」试试；不行就先把权限关掉再打开一次。</string>
+    <string name="perm_hint_no_service">权限是给了，但系统还没把服务连起来。已经在自动重试，还不行就点「重新连接」。</string>
     <string name="open_access">打开系统「通知使用权」设置</string>
     <string name="reconnect">重新连接</string>
 
@@ -26,12 +27,18 @@
     <string name="packages_hint">com.ss.android.lark,com.larksuite.suite</string>
     <string name="delay_label">收到通知后等多少毫秒再清除</string>
     <string name="delay_hint">10000</string>
-    <string name="title_label">标题必须包含（留空 = 不限制）</string>
-    <string name="title_hint">例如：DSH助手</string>
-    <string name="text_label">正文必须包含（留空 = 不限制）</string>
-    <string name="text_hint">一般不用填</string>
+    <string name="keyword_label">关键字：标题或正文里出现它就算（留空 = 不限制）</string>
+    <string name="keyword_hint">DSH助手</string>
+    <string name="keyword_explain">飞书通知的「标题」是应用名「飞书」，机器人名字在正文里。这个框两处都会查，所以填「DSH助手」就能匹配到。</string>
     <string name="save">保存</string>
     <string name="save_done">已保存</string>
+
+    <string name="keepalive_title">别让系统杀掉它</string>
+    <string name="keepalive_hint">国产系统（小米 / 华为 / OPPO / vivo）划掉多任务时会把应用进程直接杀掉，服务就断了。下面两招能明显减少这种情况。</string>
+    <string name="keepalive_battery">把本应用设为「不限制后台」</string>
+    <string name="keepalive_battery_ok">已在白名单里 ✓</string>
+    <string name="keepalive_autostart">打开系统的「自启动管理」</string>
+    <string name="keepalive_autostart_fail">这台手机没有通用的自启动页面，请手动到 设置 → 应用管理 → 通知清理器 → 自启动 / 后台运行 里打开。</string>
 
     <string name="selftest_title">自检</string>
     <string name="selftest_hint">点一下，本应用自己发一条通知，然后看它会不会按上面的延迟时间自动消失。这是唯一能证明「整条链路通不通」的办法。</string>
@@ -51,5 +58,5 @@
     <string name="active_no_service">服务没连上，暂时读不到通知列表</string>
     <string name="active_more">…还有 %1$d 条</string>
 
-    <string name="tip">说明：本应用不需要常驻通知，也不在后台占资源。\n它靠系统的「通知使用权」工作 —— 授权后由系统负责拉起，划掉多任务也不会失效。\n\n国产系统（小米 / 华为 / OPPO / vivo）可能还会额外限制后台，如果发现时灵时不灵，去系统的「电池 / 后台管理」里把本应用设成「不限制」。</string>
+    <string name="tip">说明：本应用不需要常驻通知，也不在后台占资源。\n它靠系统的「通知使用权」工作 —— 授权后由系统负责拉起，划掉多任务通常也不会失效。\n\n万一还是断了：每 5 分钟有一个看门狗会自动把它要回来，你也可以直接打开本应用，它会自动重连。</string>
 </resources>
