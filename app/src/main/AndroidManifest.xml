@@ -41,8 +41,23 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!--
+            主界面。
+            excludeFromRecents="true" 是这一版的关键改动：
+            让这个应用**不出现在多任务列表里**，于是"划掉它"这个动作根本没有对象。
+
+            为什么这么做（真机 adb 实测的结论）：
+              划掉 = vivo 杀进程 + 取消闹钟 + 取消 JobScheduler 任务 + 解绑通知监听，
+              四条路同时掐断，应用侧没有任何办法自救（实测 6 分钟一次都没回来）。
+              而 MacroDroid 同样被杀，却在 3 秒内被系统自己拉起来 —— 同样的清单、
+              同样的权限、同样的电池豁免名单，系统就是区别对待，这个差距代码补不了。
+
+            既然补不了，那就别让它被划：卡片不出现在多任务里，就没人能划它。
+            应用本身照常工作（前台服务照跑、通知监听照常），只是不再留一张可被划掉的卡片。
+        -->
         <activity
             android:name=".SettingsActivity"
+            android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/app_name">
             <intent-filter>
