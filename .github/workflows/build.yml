@@ -8,6 +8,10 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+# 失败时要把编译日志推到 ci-log 分支，所以需要写权限
+permissions:
+  contents: write
+
 jobs:
   build:
     # 刻意钉死 ubuntu-24.04，不用 ubuntu-latest：
@@ -49,7 +53,33 @@ jobs:
             -storepass "$PASS" -alias "$ALIAS"
 
       - name: 编译 release APK
-        run: gradle assembleRelease --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/build-output.log
+
+      # 编译失败时把日志推到一个 ci-log 分支。
+      # 原因：GitHub 的日志下载接口需要认证，外部拿不到；推到分支之后
+      # 用 https://raw.githubusercontent.com/<用户>/<仓库>/ci-log/ci-error.log 就能直接读。
+      - name: 失败时把编译日志推到 ci-log 分支
+        if: failure()
+        continue-on-error: true
+        run: |
+          set -e
+          {
+            echo "run=${{ github.run_number }} sha=${{ github.sha }}"
+            echo "----- 编译日志末尾 -----"
+            if [ -f /tmp/build-output.log ]; then
+              tail -c 150000 /tmp/build-output.log
+            else
+              echo "(没有生成 build-output.log)"
+            fi
+          } > ci-error.log
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          git checkout -B ci-log
+          git add -f ci-error.log
+          git commit -m "ci error log: run ${{ github.run_number }}"
+          git push -f origin ci-log
 
       - name: 改名并确认签名
         run: |
