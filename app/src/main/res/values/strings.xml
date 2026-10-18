@@ -38,16 +38,19 @@
     <string name="save_done">已保存</string>
 
     <string name="keepalive_title">后台常驻</string>
-    <string name="keepalive_hint">本应用现在挂在一条前台服务上 —— 这就是它「划掉多任务还活着」的原因，MacroDroid 靠的也是同一招。代价是通知栏会多一条静默通知：不出状态栏图标、不响、不震、不亮屏，只有你主动下拉通知栏时才会在最底部看到它。不想看到，就点下面的「隐藏这条常驻通知」。</string>
-    <string name="keepalive_hide_notif">隐藏这条常驻通知</string>
-    <string name="keepalive_hide_warn">提醒：把渠道彻底关掉之后，个别系统可能因此更容易杀掉本应用。真遇到又开始失效，回这里重新打开就行。</string>
+    <string name="fgs_checking">常驻服务：检查中…</string>
+    <string name="fgs_running">常驻服务：运行中 ✓</string>
+    <string name="fgs_stopped">常驻服务：没在跑 ✗ —— 这就是它会失效的原因</string>
+    <string name="keepalive_hint">这条前台服务是「划掉多任务还活着」的唯一原因，MacroDroid 靠的也是同一招。它会挂一条通知：有状态栏小图标，但静音 —— 不响、不震、不亮屏、不弹横幅。\n\n为什么不彻底藏起来：MacroDroid 的官方文档明确说，把图标藏掉会导致它被系统杀掉。实测也是这样，藏得太干净等于告诉系统「我没有前台服务」。</string>
+    <string name="keepalive_hide_notif">隐藏这条常驻通知（可能导致被杀）</string>
+    <string name="keepalive_hide_warn">提醒：把渠道彻底关掉之后，系统很可能因此把本应用杀掉 —— MacroDroid 的文档也是这么说的。真遇到又开始失效，回这里重新打开就行。</string>
     <string name="keepalive_battery">把本应用设为「不限制后台」</string>
     <string name="keepalive_battery_ok">已在白名单里 ✓</string>
     <string name="keepalive_autostart">打开系统的「自启动管理」</string>
     <string name="keepalive_autostart_fail">没能直接打开自启动页（已帮你打开本应用的详情页）。请到「i管家 → 应用管理 → 权限管理 → 自启动」，或「设置 → 应用与权限 → 权限管理 → 自启动」里，把「通知清理器」打开。</string>
 
     <string name="channel_keepalive">后台常驻</string>
-    <string name="channel_keepalive_desc">让应用在划掉多任务后仍然活着的常驻通知。已设为静默，不会响也不会占状态栏。</string>
+    <string name="channel_keepalive_desc">让应用在划掉多任务后仍然活着的常驻通知。已静音，但需要保留状态栏图标 —— 藏掉图标会被系统当成没有前台服务而杀掉。</string>
     <string name="notif_title">通知清理器在后台运行</string>
     <string name="notif_text">点开可以调整规则</string>
 

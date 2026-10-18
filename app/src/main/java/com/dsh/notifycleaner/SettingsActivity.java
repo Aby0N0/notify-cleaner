@@ -29,15 +29,6 @@ import android.widget.Toast;
  * 唯一的界面。
  *
  * 刻意只用系统自带控件、不引入 AndroidX —— 依赖越少，云编译越不容易出问题。
- *
- * 页面结构从上到下：
- *   1. 顶部：现在到底在不在工作（固定不滚动，不用点进去猜）
- *   2. 权限：通知使用权授了没有；没连上会自动重连，不用手动点
- *   3. 保活：引导用户把本应用设成"不限制后台"，减少被系统杀掉
- *   4. 规则：监控哪些应用、等多久、关键字
- *   5. 自检：自己发一条通知，看它会不会自动消失
- *   6. 日志：最近发生了什么
- *   7. 当前通知：系统里现在有哪些通知，可以一键清掉
  */
 public class SettingsActivity extends Activity {
 
@@ -51,6 +42,7 @@ public class SettingsActivity extends Activity {
     private TextView permState;
     private TextView permHint;
     private TextView reconnect;
+    private TextView fgsState;
     private TextView batteryBtn;
     private TextView autostartBtn;
     private TextView keepAliveHint;
@@ -64,8 +56,23 @@ public class SettingsActivity extends Activity {
     private TextView activeCount;
     private LinearLayout activeList;
 
-    /** 还在等服务的连接结果。> 0 表示"正在连接"，== 0 表示"确实没连上"。 */
-    private int pollTicks;
+    /** 界面在前台时每隔 1 秒刷新一次状态。 */
+    private final Runnable liveTick = new Runnable() {
+        @Override
+        public void run() {
+            refreshPermission();
+            refreshFgsState();
+
+            // 没连上就持续催，每 2 秒一次，最多 30 次（约 1 分钟）
+            if (isListenerEnabled() && !connectedNow() && rebindTries < 30) {
+                rebindTries++;
+                if (rebindTries % 2 == 1) kickService();
+            }
+            handler.postDelayed(this, 1000);
+        }
+    };
+
+    private int rebindTries;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,6 +83,7 @@ public class SettingsActivity extends Activity {
         permState = findViewById(R.id.permState);
         permHint = findViewById(R.id.permHint);
         reconnect = findViewById(R.id.reconnect);
+        fgsState = findViewById(R.id.fgsState);
         batteryBtn = findViewById(R.id.batteryBtn);
         autostartBtn = findViewById(R.id.autostartBtn);
         keepAliveHint = findViewById(R.id.keepAliveHint);
@@ -104,6 +112,12 @@ public class SettingsActivity extends Activity {
         findViewById(R.id.refreshActive).setOnClickListener(v -> refreshActive());
         findViewById(R.id.clearActive).setOnClickListener(v -> clearAllActive());
 
+        findViewById(R.id.hideNotifBtn).setOnClickListener(v -> {
+            openChannelSettings();
+            findViewById(R.id.hideNotifWarn).setVisibility(View.VISIBLE);
+            LogStore.add(this, "🔧 打开了常驻通知的渠道设置");
+        });
+
         batteryBtn.setOnClickListener(v -> {
             if (KeepAlive.isIgnoringBatteryOptimizations(this)) {
                 Toast.makeText(this, R.string.keepalive_battery_ok, Toast.LENGTH_SHORT).show();
@@ -124,39 +138,40 @@ public class SettingsActivity extends Activity {
             }
         });
 
-        findViewById(R.id.hideNotifBtn).setOnClickListener(v -> {
-            openChannelSettings();
-            findViewById(R.id.hideNotifWarn).setVisibility(View.VISIBLE);
-            LogStore.add(this, "🔧 打开了常驻通知的渠道设置");
-        });
-
-        // 前台服务：这是"划掉多任务还活着"的关键，MacroDroid 靠的也是同一招
+        // 前台服务：这是"划掉多任务还活着"的关键。
+        // 它的通知必须有状态栏图标，否则系统会当成没有前台服务而杀掉。
         KeepAliveService.start(this);
-        // 看门狗闹钟：万一前台服务也被干掉，靠它每 5 分钟把一切要回来
         KeepAlive.schedule(this);
+
+        // 前台服务的通知要能显示出来，否则系统可能不把它当回事
+        ensurePostPermission();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-
-        // 每次回到界面都确保前台服务在跑（重复调用安全）
+        rebindTries = 0;
         KeepAliveService.start(this);
 
-        // 一进来就把服务要回来，不用用户点「重新连接」。
-        // 划掉多任务后系统可能还没重新绑定，所以请求完再观察几秒。
+        // 一进来就把通知监听服务要回来
         if (isListenerEnabled() && !connectedNow()) {
             kickService();
-            pollTicks = 5;
-            pollConnection();
-        } else {
-            pollTicks = 0;
         }
 
         refreshKeepAlive();
         refreshPermission();
+        refreshFgsState();
         refreshLog();
         refreshActive();
+
+        handler.removeCallbacks(liveTick);
+        handler.postDelayed(liveTick, 1000);
+    }
+
+    @Override
+    protected void onPause() {
+        handler.removeCallbacks(liveTick);
+        super.onPause();
     }
 
     @Override
@@ -175,28 +190,9 @@ public class SettingsActivity extends Activity {
     private void kickService() {
         try {
             NotifyCleanerService.requestRebind(new ComponentName(this, NotifyCleanerService.class));
-        } catch (Throwable ignored) {
-            // 请求不到就等看门狗
+        } catch (Throwable t) {
+            LogStore.add(this, "⚠️ 请求重连失败：" + t.getClass().getSimpleName());
         }
-    }
-
-    /** 每 600 毫秒看一眼连上没有，最多看 5 次（约 3 秒）。 */
-    private void pollConnection() {
-        if (pollTicks <= 0) {
-            refreshPermission();
-            return;
-        }
-        if (connectedNow()) {
-            pollTicks = 0;
-            refreshPermission();
-            refreshActive();
-            return;
-        }
-        pollTicks--;
-        handler.postDelayed(() -> {
-            pollConnection();
-            refreshPermission();
-        }, 600);
     }
 
     private void refreshPermission() {
@@ -224,8 +220,8 @@ public class SettingsActivity extends Activity {
         }
 
         permHint.setText(R.string.perm_hint_no_service);
-        if (pollTicks > 0) {
-            // 还在自动重连，先别报警
+        if (rebindTries <= 4) {
+            // 刚开始自动重连，先别报警
             setChip(R.drawable.bg_chip_neutral, R.color.text_sub,
                     getString(R.string.chip_connecting));
             reconnect.setVisibility(View.GONE);
@@ -233,6 +229,12 @@ public class SettingsActivity extends Activity {
             setChip(R.drawable.bg_chip_bad, R.color.danger, getString(R.string.chip_no_service));
             reconnect.setVisibility(View.VISIBLE);
         }
+    }
+
+    private void refreshFgsState() {
+        boolean running = KeepAliveService.isRunning();
+        fgsState.setText(running ? R.string.fgs_running : R.string.fgs_stopped);
+        fgsState.setTextColor(getColor(running ? R.color.primary : R.color.danger));
     }
 
     private void setChip(int bgRes, int colorRes, String text) {
@@ -303,7 +305,7 @@ public class SettingsActivity extends Activity {
 
     /**
      * 跳到「后台常驻」这个通知渠道的系统设置页。
-     * 用户可以在那里把这条常驻通知彻底关掉 —— 通知消失，前台服务照跑。
+     * 注意：关掉它会显著增加被系统杀掉的风险，界面上有警告。
      */
     private void openChannelSettings() {
         try {
@@ -330,16 +332,17 @@ public class SettingsActivity extends Activity {
         kickService();
         LogStore.add(this, "🔁 手动请求重新连接");
         Toast.makeText(this, "已请求重连", Toast.LENGTH_SHORT).show();
-        pollTicks = 5;
-        pollConnection();
+        rebindTries = 0;
         refreshLog();
     }
 
     // ==================== 自检 ====================
 
     private void sendTest() {
-        if (!ensurePostPermission()) return;
-
+        if (!ensurePostPermission()) {
+            Toast.makeText(this, "先允许发通知，再点一次自检", Toast.LENGTH_SHORT).show();
+            return;
+        }
         Config config = Config.load(this);
         int delay = config.delayMs;
         NotificationManager nm =
@@ -418,7 +421,6 @@ public class SettingsActivity extends Activity {
                     != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},
                         REQ_POST_NOTIFICATIONS);
-                Toast.makeText(this, "先允许发通知，再点一次自检", Toast.LENGTH_SHORT).show();
                 return false;
             }
         }

@@ -100,13 +100,23 @@ public class NotifyCleanerService extends NotificationListenerService {
     public void onListenerDisconnected() {
         super.onListenerDisconnected();
         connected = false;
-        LogStore.add(this, "🔌 通知使用权断开，尝试重连");
-        try {
-            requestRebind(new ComponentName(this, NotifyCleanerService.class));
-        } catch (Throwable t) {
-            Log.w(TAG, "requestRebind failed", t);
-        }
+        LogStore.add(this, "🔌 通知使用权断开，2 秒后尝试重连");
+        // 不要立刻重连：系统正在拆绑定的过程中请求重绑，往往会被直接忽略。
+        // 等两秒，让系统先把它自己的状态收拾干净。
+        handler.removeCallbacks(rebindTask);
+        handler.postDelayed(rebindTask, 2000);
     }
+
+    private final Runnable rebindTask = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                requestRebind(new ComponentName(NotifyCleanerService.this, NotifyCleanerService.class));
+            } catch (Throwable t) {
+                Log.w(TAG, "requestRebind failed", t);
+            }
+        }
+    };
 
     @Override
     public void onDestroy() {
