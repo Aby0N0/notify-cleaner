@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 只为了在“等 10 秒”这段时间里让 CPU 别睡，保证延迟任务准时跑 -->
+    <!-- 只为了在「等 10 秒」这段时间里让 CPU 别睡，保证巡检能准时跑 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 自检要自己发一条通知，Android 13 起需要这个 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+        android:theme="@style/AppTheme">
 
         <activity
             android:name=".SettingsActivity"

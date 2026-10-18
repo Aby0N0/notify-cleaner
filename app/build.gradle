@@ -10,8 +10,8 @@ android {
         applicationId "com.dsh.notifycleaner"
         minSdk 26          // Android 8.0 起；这样就不需要为老系统准备 PNG 图标
         targetSdk 35
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "2.0"
     }
 
     buildTypes {

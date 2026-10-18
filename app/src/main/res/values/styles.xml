@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 应用主题：不要系统那条黑 ActionBar，标题我们自己画 -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/primary</item>
+        <item name="android:colorPrimaryDark">@color/primary_dark</item>
+        <item name="android:colorAccent">@color/primary</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/header_top</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- 主按钮（实心） -->
+    <style name="BtnPrimary">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:background">@drawable/bg_button_primary</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:gravity">center</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <!-- 次按钮（描边） -->
+    <style name="BtnGhost" parent="BtnPrimary">
+        <item name="android:background">@drawable/bg_button_ghost</item>
+        <item name="android:textColor">@color/primary</item>
+    </style>
+
+    <!-- 轻按钮（浅绿底） -->
+    <style name="BtnSoft" parent="BtnPrimary">
+        <item name="android:background">@drawable/bg_button_soft</item>
+        <item name="android:textColor">@color/primary_dark</item>
+    </style>
+
+    <!-- 小号说明文字 -->
+    <style name="Label">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_sub</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingExtra">2dp</item>
+    </style>
+
+    <!-- 输入框：去掉系统下划线，换成浅灰圆角块 -->
+    <style name="Input">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:background">@drawable/bg_input</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/text</item>
+        <item name="android:textColorHint">@color/text_sub</item>
+        <item name="android:singleLine">true</item>
+    </style>
+
+    <!-- 卡片里的小标题 -->
+    <style name="CardTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+</resources>

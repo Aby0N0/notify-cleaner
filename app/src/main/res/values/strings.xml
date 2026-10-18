@@ -1,24 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">通知清理器</string>
+    <string name="app_subtitle">通知看一眼就够，到点自动消失</string>
 
-    <string name="open_access">打开「通知使用权」设置</string>
+    <string name="chip_checking">● 正在检查…</string>
+    <string name="chip_ok">● 正在工作</string>
+    <string name="chip_no_perm">● 未授权，无法工作</string>
+    <string name="chip_off">● 已暂停</string>
+    <string name="chip_no_service">● 已授权，但服务没连上</string>
 
+    <string name="perm_title">通知使用权</string>
+    <string name="perm_checking">检查中</string>
+    <string name="perm_ok">已授权</string>
+    <string name="perm_bad">未授权</string>
+    <string name="perm_hint_unknown">这个权限是本应用唯一需要的东西。系统靠它把通知交给本应用处理。</string>
+    <string name="perm_hint_bad">还没授权，所以现在什么都不会发生。点下面的按钮，在系统列表里找到「通知清理器」并打开。</string>
+    <string name="perm_hint_ok">已授权，服务在正常运行。</string>
+    <string name="perm_hint_no_service">权限是给了，但系统还没把服务连起来。点「重新连接」试试；不行就先把权限关掉再打开一次。</string>
+    <string name="open_access">打开系统「通知使用权」设置</string>
+    <string name="reconnect">重新连接</string>
+
+    <string name="rule_title">清理规则</string>
     <string name="enabled">启用</string>
-
-    <string name="packages_label">只处理这些应用（包名，逗号分隔；留空 = 所有应用）</string>
+    <string name="packages_label">监控这些应用（包名，逗号分隔；留空 = 所有应用）</string>
     <string name="packages_hint">com.ss.android.lark,com.larksuite.suite</string>
-
     <string name="delay_label">收到通知后等多少毫秒再清除</string>
     <string name="delay_hint">10000</string>
-
     <string name="title_label">标题必须包含（留空 = 不限制）</string>
     <string name="title_hint">例如：DSH助手</string>
-
     <string name="text_label">正文必须包含（留空 = 不限制）</string>
     <string name="text_hint">一般不用填</string>
-
     <string name="save">保存</string>
+    <string name="save_done">已保存</string>
 
-    <string name="tip">说明：本应用不需要常驻通知，也不在后台占资源。\n它靠系统的「通知使用权」工作 —— 授权后由系统负责拉起，划掉多任务也不会失效。</string>
+    <string name="selftest_title">自检</string>
+    <string name="selftest_hint">点一下，本应用自己发一条通知，然后看它会不会按上面的延迟时间自动消失。这是唯一能证明「整条链路通不通」的办法。</string>
+    <string name="selftest_btn">发一条测试通知</string>
+    <string name="selftest_idle">还没测过</string>
+
+    <string name="log_title">最近发生了什么</string>
+    <string name="log_view_all">查看全部</string>
+    <string name="log_empty">还没有记录。\n授权之后，收到被监控应用的通知，这里就会一行一行记下来。</string>
+    <string name="log_clear">清空</string>
+    <string name="log_close">关闭</string>
+
+    <string name="active_title">当前通知</string>
+    <string name="active_refresh">刷新</string>
+    <string name="active_clear">清掉当前所有通知（常驻的除外）</string>
+    <string name="active_none">当前没有通知</string>
+    <string name="active_no_service">服务没连上，暂时读不到通知列表</string>
+    <string name="active_more">…还有 %1$d 条</string>
+
+    <string name="tip">说明：本应用不需要常驻通知，也不在后台占资源。\n它靠系统的「通知使用权」工作 —— 授权后由系统负责拉起，划掉多任务也不会失效。\n\n国产系统（小米 / 华为 / OPPO / vivo）可能还会额外限制后台，如果发现时灵时不灵，去系统的「电池 / 后台管理」里把本应用设成「不限制」。</string>
 </resources>
