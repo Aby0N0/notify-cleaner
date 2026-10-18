@@ -117,6 +117,10 @@ public final class KeepAlive {
             } catch (Throwable ignored) {
                 am.set(AlarmManager.RTC_WAKEUP, triggerAt, pi);
             }
+
+            // 同时排一个 JobScheduler 任务。这条路不依赖「自启动」权限 ——
+            // 闹钟在国产 ROM 上会被自启动开关挡住，系统任务不会。
+            RestartJobService.schedule(context, delayMs);
         } catch (Throwable t) {
             LogStore.add(context, "⚠️ 排重启闹钟失败：" + t.getClass().getSimpleName());
         }

@@ -149,6 +149,9 @@ public class SettingsActivity extends Activity {
         // 它的通知必须有状态栏图标，否则系统会当成没有前台服务而杀掉。
         KeepAliveService.start(this);
         KeepAlive.schedule(this);
+        // JobScheduler：系统托管的任务，不依赖「自启动」权限（抄 MacroDroid 的 crashguard）
+        RestartJobService.schedulePeriodic(this);
+        RestartJobService.schedule(this, 1000);
 
         // 前台服务的通知要能显示出来，否则系统可能不把它当回事
         ensurePostPermission();

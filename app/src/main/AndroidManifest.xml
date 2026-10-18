@@ -15,8 +15,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- 被划掉后 1 秒内精确把自己拉回来；拿不到这个权限就退回普通闹钟，会晚几秒 -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <!--
-        深度修复用：把本应用从「通知使用权」列表里摘掉再写回，逼系统重新注册监听。
+    <!-- 深度修复用：把本应用从「通知使用权」列表里摘掉再写回，逼系统重新注册监听。
         这是签名级权限，普通应用拿不到，必须用电脑执行一次：
             adb shell pm grant com.dsh.notifycleaner android.permission.WRITE_SECURE_SETTINGS
         没授予时应用照常工作，只是这个修复按钮用不了。
@@ -24,6 +23,8 @@
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
+    <!-- 监听网络变化广播（MacroDroid 的 crashguard 库也这么干） -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".App"
@@ -85,6 +86,31 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!--
+            靠系统广播把自己叫醒。抄的是 MacroDroid 里 crashguard 库的 PowerReceiver /
+            NetworkReceiver：这类广播由系统发出，**不需要「自启动」权限**，
+            每插一次充电器、切一次网络，就多一次把自己救回来的机会。
+        -->
+        <receiver
+            android:name=".WakeReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            JobScheduler 任务。抄的是 MacroDroid 里的 crashguard.SystemJobService。
+            任务由系统托管，进程被杀也还在，而且**不需要「自启动」权限**。
+        -->
+        <service
+            android:name=".RestartJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
     </application>
 
