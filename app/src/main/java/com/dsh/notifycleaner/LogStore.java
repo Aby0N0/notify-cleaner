@@ -2,6 +2,7 @@ package com.dsh.notifycleaner;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -37,6 +38,17 @@ public final class LogStore {
         lastBody = body;
 
         String line = TIME.format(new Date()) + "  " + body;
+
+        // 同时也写一份到 logcat。
+        // 为什么：应用自己的日志存在 SharedPreferences 里，只有打开界面才看得到；
+        // 而排查"后台到底发生了什么"时，用电脑接 adb 看 logcat 是唯一能看到实时真相的办法。
+        //     adb logcat -s NotifyCleaner
+        try {
+            Log.i("NotifyCleaner", body);
+        } catch (Throwable ignored) {
+            // 打不出来不影响存盘
+        }
+
         SharedPreferences prefs = prefs(context);
         String old = prefs.getString(KEY, "");
         String merged = old == null || old.isEmpty() ? line : line + "\n" + old;

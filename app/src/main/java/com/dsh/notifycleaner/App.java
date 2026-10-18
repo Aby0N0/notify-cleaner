@@ -17,6 +17,9 @@ public class App extends Application {
         // 上一次「深度修复」如果没走完（进程中途被杀），这里把设置项恢复回去，
         // 免得把通知使用权弄丢。
         ListenerFix.restore(this);
+        // 上一次如果"禁用组件"没走完（进程中途被杀），这里补上，
+        // 免得监听组件一直被禁用 —— 那种状态表现为"授权看着是开的，但收不到任何通知"。
+        ListenerFix.restoreComponent(this);
 
         // ===== 复活链的起点（照抄 MacroDroid 的 MacroDroidApplication.onCreate）=====
         // MD 的做法是：进程一启动，第一件事就是 startForegroundService。

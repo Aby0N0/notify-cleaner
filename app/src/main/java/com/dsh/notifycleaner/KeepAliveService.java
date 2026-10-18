@@ -157,23 +157,54 @@ public class KeepAliveService extends Service {
             //     adb shell pm grant com.dsh.notifycleaner android.permission.WRITE_SECURE_SETTINGS
             // 授予一次之后永久有效，重启手机、覆盖安装都不掉。
             //
-            // 触发时机：第 3 次（约 9 秒）、第 10、20、40 次各试一次，每次间隔至少 60 秒。
-            boolean deepFixMoment = rebindAttempts == 3
-                    || rebindAttempts == 10
-                    || rebindAttempts == 20
-                    || rebindAttempts == 40;
-            if (deepFixMoment && ListenerFix.canFix(KeepAliveService.this)) {
-                long now = System.currentTimeMillis();
-                if (now - lastDeepFix > 60_000L) {
-                    lastDeepFix = now;
-                    LogStore.add(KeepAliveService.this,
-                            "🔧 自动深度修复：强制系统重新注册通知监听（第 " + rebindAttempts + " 轮）");
-                    if (ListenerFix.forceReRegister(KeepAliveService.this, handler)) {
-                        // 给系统 1.5 秒走完"移除 → 重新注册"，然后继续看有没有连上
-                        handler.postDelayed(this, 1500);
-                        return;
+            // ===== 阶梯式恢复策略 =====
+            //
+            // 真机实测结论（adb 直接验证）：
+            //   · adb shell cmd notification allow_listener <组件>  单独执行就有效
+            //     → Live notification listeners 21 变 22，我们被绑上。系统随时愿意重绑，
+            //       只是需要一个"状态变化"去惊动它。
+            //   · 直接改 Settings.Secure.enabled_notification_listeners **完全无效**
+            //     → 值确实变了，但 Live 计数纹丝不动。系统已经不监听那个设置项了。
+            //
+            // 所以下面按"从强到弱"的顺序试，每一级都写日志，方便用 adb logcat 看哪一级生效。
+            long now = System.currentTimeMillis();
+            boolean cooledDown = now - lastDeepFix > 15_000L;
+
+            // 策略 A：禁用再启用自己的监听组件。
+            // 应用改不了系统的授权状态，但能改自己的组件启用状态；组件一变，
+            // 系统会收到包变化通知并重新整理监听器列表。这是应用侧能触发的最强变化。
+            boolean strategyA = rebindAttempts == 3 || rebindAttempts == 30;
+            if (strategyA && cooledDown) {
+                lastDeepFix = now;
+                if (ListenerFix.toggleComponent(KeepAliveService.this, handler)) {
+                    handler.postDelayed(this, 3000);
+                    return;
+                }
+            }
+
+            // 策略 B：requestUnbind() —— 让系统主动把我们解绑、再重新绑回来。
+            // 用反射调用：这个接口在部分 SDK 版本上不存在，直接写编译不过。
+            if (rebindAttempts == 12 && cooledDown) {
+                lastDeepFix = now;
+                if (listener != null) {
+                    try {
+                        java.lang.reflect.Method m =
+                                android.service.notification.NotificationListenerService.class
+                                        .getMethod("requestUnbind");
+                        m.invoke(listener);
+                        LogStore.add(KeepAliveService.this, "🔧 策略B：已调用 requestUnbind()");
+                    } catch (Throwable t) {
+                        LogStore.add(KeepAliveService.this,
+                                "⚠️ 策略B 不可用：" + t.getClass().getSimpleName());
                     }
                 }
+            }
+
+            // 策略 C：改写 Settings.Secure 里那串列表（实测基本无效，留作兜底）。
+            if (rebindAttempts == 24 && cooledDown && ListenerFix.canFix(KeepAliveService.this)) {
+                lastDeepFix = now;
+                LogStore.add(KeepAliveService.this, "🔧 策略C：改写通知监听设置项");
+                ListenerFix.forceReRegister(KeepAliveService.this, handler);
             }
 
             // 关键的一手（来自 MacroDroid 的 NotificationService.g()）：
