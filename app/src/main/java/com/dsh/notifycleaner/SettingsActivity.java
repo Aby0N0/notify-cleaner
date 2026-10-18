@@ -129,6 +129,8 @@ public class SettingsActivity extends Activity {
                 return;
             }
             KeepAlive.requestIgnoreBatteryOptimizations(this);
+            // 回来之后复查一次：vivo 上这个系统对话框经常点了也没生效
+            handler.postDelayed(this::checkBatteryResult, 2500);
         });
 
         autostartBtn.setOnClickListener(v -> {
@@ -177,6 +179,22 @@ public class SettingsActivity extends Activity {
     protected void onPause() {
         handler.removeCallbacks(liveTick);
         super.onPause();
+    }
+
+    /**
+     * 用户离开界面时（切到别的应用、按返回、或者直接把任务划掉），
+     * 都先排一个「1 秒后把自己拉起来」的闹钟。
+     *
+     * 为什么要在这里排：日志证明 onTaskRemoved() 从来没被系统调用过
+     * （vivo 是直接 SIGKILL，不给回调机会）。onStop 是我们能拿到的、
+     * 最接近"用户要走了"的信号。
+     *
+     * 副作用很小：如果应用本来就活着，这个闹钟只是把已经在跑的服务再 start 一次。
+     */
+    @Override
+    protected void onStop() {
+        KeepAlive.scheduleRestart(this, 1000);
+        super.onStop();
     }
 
     @Override
@@ -250,8 +268,7 @@ public class SettingsActivity extends Activity {
         headerChip.setText(text);
     }
 
-    private void refreshKeepAlive() {
-        if (KeepAlive.isIgnoringBatteryOptimizations(this)) {
+    private void refreshKeepAlive() {        if (KeepAlive.isIgnoringBatteryOptimizations(this)) {
             batteryBtn.setText(R.string.keepalive_battery_ok);
             batteryBtn.setTextColor(getColor(R.color.primary_dark));
             batteryBtn.setBackgroundResource(R.drawable.bg_button_soft);
@@ -263,6 +280,27 @@ public class SettingsActivity extends Activity {
             batteryBtn.setBackgroundResource(R.drawable.bg_button_primary);
             batteryBtn.setAlpha(1f);
         }
+    }
+
+    /**
+     * 点了「不限制后台」之后复查结果。
+     * vivo 上那个系统对话框经常点了也不生效（它的「智能控制」是另一套东西），
+     * 所以这里要给出手动设置的路径，不能让用户以为已经设好了。
+     */
+    private void checkBatteryResult() {
+        refreshKeepAlive();
+        if (KeepAlive.isIgnoringBatteryOptimizations(this)) {
+            LogStore.add(this, "✅ 已加入电池优化白名单");
+            return;
+        }
+        LogStore.add(this, "⚠️ 系统没接受白名单请求（vivo 上常见），需要手动设置");
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.battery_manual_title)
+                .setMessage(R.string.battery_manual_msg)
+                .setPositiveButton(R.string.ok, null)
+                .setNeutralButton(R.string.open_app_details,
+                        (d, w) -> KeepAlive.openAppDetails(this))
+                .show();
     }
 
     /**

@@ -82,6 +82,10 @@ public final class KeepAlive {
      */
     public static void scheduleRestart(Context context, long delayMs) {
         try {
+            // 服务还活着时排的这个闹钟只是"预防性"的（比如界面 onStop 时顺手排一个），
+            // 不算一次真正的重启，不占配额 —— 否则频繁开关界面会把配额耗光。
+            boolean preventive = KeepAliveService.isRunning();
+
             SharedPreferences p = context.getApplicationContext()
                     .getSharedPreferences("notify_cleaner", Context.MODE_PRIVATE);
             long now = System.currentTimeMillis();
@@ -91,13 +95,16 @@ public final class KeepAlive {
                 windowStart = now;
                 count = 0;
             }
-            if (count >= MAX_RESTARTS_PER_WINDOW) {
-                LogStore.add(context, "⚠️ 重启次数过多，暂停自动重启（系统可能在反复杀）");
-                return;
+            if (!preventive) {
+                if (count >= MAX_RESTARTS_PER_WINDOW) {
+                    LogStore.add(context, "⚠️ 重启次数过多，暂停自动重启（系统可能在反复杀）");
+                    return;
+                }
+                count++;
             }
             p.edit()
                     .putLong("restartWindowStart", windowStart)
-                    .putInt("restartCount", count + 1)
+                    .putInt("restartCount", count)
                     .apply();
 
             AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);

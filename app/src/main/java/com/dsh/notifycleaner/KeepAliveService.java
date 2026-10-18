@@ -10,7 +10,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 
 /**
  * 前台服务：这个应用能"划掉还活着"的唯一原因。
@@ -52,6 +54,46 @@ public class KeepAliveService extends Service {
     /** 前台服务当前是否在跑。设置界面要显示这个状态。 */
     private static volatile boolean sRunning;
 
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private int rebindAttempts;
+
+    /**
+     * 反复请求重绑通知监听，直到连上为止。
+     *
+     * 为什么不能只请求一次：日志实测，requestRebind() 是有效的，但系统要 10～20 秒才真正
+     * 把服务绑起来（00:26:38 请求 → 00:26:57 连上；00:54:36 请求 → 00:54:46 连上）。
+     * 之前只请求一次就放弃，所以经常等半天都连不上。
+     */
+    private final Runnable rebindLoop = new Runnable() {
+        @Override
+        public void run() {
+            NotifyCleanerService listener = NotifyCleanerService.get();
+            if (listener != null && listener.isConnected()) {
+                if (rebindAttempts > 0) {
+                    LogStore.add(KeepAliveService.this,
+                            "✅ 监听服务已连上（共尝试 " + rebindAttempts + " 次）");
+                }
+                rebindAttempts = 0;
+                return;
+            }
+            if (rebindAttempts >= 60) {
+                // 3 秒一次，最多 3 分钟；之后交给看门狗闹钟重新拉起再试
+                return;
+            }
+            rebindAttempts++;
+            try {
+                NotifyCleanerService.requestRebind(
+                        new ComponentName(KeepAliveService.this, NotifyCleanerService.class));
+            } catch (Throwable ignored) {
+                // 下一轮再试
+            }
+            if (rebindAttempts == 1 || rebindAttempts % 10 == 0) {
+                LogStore.add(KeepAliveService.this, "🔄 请求重绑通知监听（第 " + rebindAttempts + " 次）");
+            }
+            handler.postDelayed(this, 3000);
+        }
+    };
+
     public static boolean isRunning() {
         return sRunning;
     }
@@ -86,16 +128,11 @@ public class KeepAliveService extends Service {
             LogStore.add(this, "⚠️ 升为前台服务失败：" + shortMsg(t));
         }
 
-        // 进程刚被拉起来时，通知监听服务往往还没绑上，主动请求一次
-        NotifyCleanerService listener = NotifyCleanerService.get();
-        if (listener == null || !listener.isConnected()) {
-            try {
-                NotifyCleanerService.requestRebind(
-                        new ComponentName(this, NotifyCleanerService.class));
-            } catch (Throwable ignored) {
-                // 请求不到就靠后面的看门狗
-            }
-        }
+        // 进程刚被拉起来时，通知监听服务往往还没绑上。启动一个反复重试的循环，
+        // 每 3 秒请求一次，直到连上为止（系统实测要 10～20 秒才会真的绑）。
+        handler.removeCallbacks(rebindLoop);
+        rebindAttempts = 0;
+        handler.postDelayed(rebindLoop, 500);
 
         // 精确闹钟能不能用，直接决定"1 秒后复活"到底准不准
         try {
@@ -133,6 +170,7 @@ public class KeepAliveService extends Service {
     @Override
     public void onDestroy() {
         sRunning = false;
+        handler.removeCallbacks(rebindLoop);
         LogStore.add(this, "🛡️ 常驻服务被销毁，1 秒后自动重启");
         // 不管是被谁销毁的，都排一个重启闹钟 —— 宁可多起一次，也不要彻底死掉
         KeepAlive.scheduleRestart(this, 1000);
