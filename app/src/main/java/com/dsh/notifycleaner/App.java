@@ -14,5 +14,8 @@ public class App extends Application {
     public void onCreate() {
         super.onCreate();
         LogStore.add(this, "🚀 进程启动");
+        // 上一次「深度修复」如果没走完（进程中途被杀），这里把设置项恢复回去，
+        // 免得把通知使用权弄丢。
+        ListenerFix.restore(this);
     }
 }

@@ -83,6 +83,9 @@ public class NotifyCleanerService extends NotificationListenerService {
     public void onCreate() {
         super.onCreate();
         sInstance = this;
+        // 这行很重要：如果系统根本没绑定过这个服务，日志里就不会有它 ——
+        // 那就说明系统的通知监听注册表里已经没有我们了（只能靠「深度修复」救）。
+        LogStore.add(this, "🔧 通知监听服务已被系统绑定");
     }
 
     @Override

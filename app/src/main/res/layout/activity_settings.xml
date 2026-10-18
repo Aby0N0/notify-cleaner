@@ -112,6 +112,19 @@
                     android:layout_marginTop="8dp"
                     android:text="@string/reconnect"
                     android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/deepFixBtn"
+                    style="@style/BtnGhost"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/deep_fix" />
+
+                <TextView
+                    android:id="@+id/deepFixHint"
+                    style="@style/Label"
+                    android:layout_marginTop="6dp"
+                    android:visibility="gone"
+                    android:text="@string/deep_fix_hint" />
             </LinearLayout>
 
             <!-- 保活 -->

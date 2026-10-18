@@ -21,6 +21,14 @@
     <string name="open_access">打开系统「通知使用权」设置</string>
     <string name="reconnect">重新连接</string>
 
+    <string name="deep_fix">深度修复（需要 adb 授权一次）</string>
+    <string name="deep_fix_hint">系统把本应用的监听服务从内部注册表里摘掉了，普通重连救不回来。这个按钮做的就是你手动做的那个动作 —— 把本应用从「通知使用权」列表里摘掉再写回，逼系统重新注册。</string>
+    <string name="deep_fix_done">已执行深度修复，正在重新连接…</string>
+    <string name="deep_fix_dialog_title">需要一次性 adb 授权</string>
+    <string name="deep_fix_dialog_msg">这个操作要改系统设置，普通应用没这个权限。用电脑执行一次下面的命令即可（只需一次，永久有效，重启手机也不掉）：</string>
+    <string name="copy_cmd">复制命令</string>
+    <string name="ok">知道了</string>
+
     <string name="rule_title">清理规则</string>
     <string name="enabled">启用</string>
     <string name="packages_label">监控这些应用（包名，逗号分隔；留空 = 所有应用）</string>

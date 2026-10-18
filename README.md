@@ -35,7 +35,7 @@
 
 ### 但代价被压到了最小
 
-| | MacroDroid | 本应用 v7 |
+| | MacroDroid | 本应用 v8 |
 |---|---|---|
 | 前台服务 | 有 | **有** |
 | 常驻通知可见度 | 默认在状态栏显示图标 | **IMPORTANCE_LOW**：有状态栏小图标，但静音（不响、不震、不亮屏、不弹横幅、无角标） |
@@ -96,6 +96,28 @@ onNotificationPosted() → 看一眼，该清的记下来，启动巡检
 
 重启频率有上限：5 分钟内最多 12 次，防止"被杀→重启→被杀"的死循环把电耗光。
 
+### 「已授权，但服务连不上」怎么办
+
+国产 ROM 划掉多任务时，杀法接近 `am force-stop`：系统会把本应用的通知监听组件
+**从内部注册表里摘掉**，但 `enabled_notification_listeners` 设置项里仍然留着我们的名字。
+
+于是界面显示「已授权」，但系统已经不认识这个监听了：
+
+- `NotificationListenerService.requestRebind()` **找不到对象，什么也不做**
+- 只能手动去设置里把「通知使用权」关掉再打开
+
+应用里有个 **「深度修复」** 按钮做的就是这个动作（把本应用从列表里摘掉再写回）。
+但它要改系统设置，需要签名级权限 `WRITE_SECURE_SETTINGS`，只能用电脑授予一次：
+
+```bash
+adb shell pm grant com.dsh.notifycleaner android.permission.WRITE_SECURE_SETTINGS
+```
+
+**只需一次，永久有效，重启手机也不掉。** 没授权时应用照常工作，只是这个按钮会给出上面这条命令。
+
+> 代码在 `ListenerFix.java`。改设置前会先把原值存进 SharedPreferences，
+> 万一中途进程被杀，下次启动 `App.onCreate` 会把设置恢复回去，不会把通知使用权弄丢。
+
 其他细节：
 
 - 只清**存在时间在 10 分钟以内**的通知 —— 免得一装上就把几天前的旧通知全清了。
@@ -132,7 +154,7 @@ GitHub Actions 每次运行都是全新机器，Android 默认的 debug 签名�
 现在仓库里放了一套**固定的签名密钥**（`keystore/notify-cleaner.p12` + `keystore.properties`），
 每次编译都用它签，并打印证书指纹供核对。签名固定了，以后所有新版本都能直接覆盖安装。
 
-> ⚠️ **装 v7 之前要先卸载一次旧的 v1 / v2**。旧版是随机签名，和新的固定签名对不上。
+> ⚠️ **装 v8 之前要先卸载一次旧的 v1 / v2**。旧版是随机签名，和新的固定签名对不上。
 > **只有这一次**需要卸载，之后就不用了。
 >
 > ⚠️ 仓库是公开的，所以这套密钥和密码也是公开的。对一个自己用的工具 App 可以接受。
@@ -172,7 +194,7 @@ git push -u origin main
 
 ### 第 4 步：下载 APK
 
-点进那次运行 → 页面底部 **Artifacts** → **`notify-cleaner-apk`** → 解压得到 **`notify-cleaner-v7.0.apk`**。
+点进那次运行 → 页面底部 **Artifacts** → **`notify-cleaner-apk`** → 解压得到 **`notify-cleaner-v8.0.apk`**。
 
 > 建议**在电脑上下载，再传到手机**（微信文件传输助手 / 数据线）。
 

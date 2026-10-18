@@ -111,9 +111,11 @@ public final class KeepAlive {
     }
 
     private static PendingIntent restartPending(Context context) {
-        Intent intent = new Intent(context, KeepAliveReceiver.class);
-        intent.setAction(KeepAliveReceiver.ACTION_RESTART);
-        return PendingIntent.getBroadcast(context, RESTART_REQUEST_CODE, intent,
+        Intent intent = new Intent(context, KeepAliveService.class);
+        // 关键：用 getForegroundService，让"系统"来启动这个前台服务。
+        // Android 12+ 限制"应用自己在后台启动前台服务"，走 PendingIntent 由系统代劳可以绕开。
+        // 之前用的是 getBroadcast + 在广播里自己 startForegroundService，很可能就是被这条限制挡掉的。
+        return PendingIntent.getForegroundService(context, RESTART_REQUEST_CODE, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 

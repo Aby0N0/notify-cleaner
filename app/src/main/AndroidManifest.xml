@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 巡检期间让 CPU 别睡，保证到点能清 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -14,6 +15,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- 被划掉后 1 秒内精确把自己拉回来；拿不到这个权限就退回普通闹钟，会晚几秒 -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!--
+        深度修复用：把本应用从「通知使用权」列表里摘掉再写回，逼系统重新注册监听。
+        这是签名级权限，普通应用拿不到，必须用电脑执行一次：
+            adb shell pm grant com.dsh.notifycleaner android.permission.WRITE_SECURE_SETTINGS
+        没授予时应用照常工作，只是这个修复按钮用不了。
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:name=".App"

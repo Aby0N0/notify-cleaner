@@ -44,6 +44,7 @@ public class SettingsActivity extends Activity {
     private TextView permState;
     private TextView permHint;
     private TextView reconnect;
+    private TextView deepFixHint;
     private TextView fgsState;
     private TextView batteryBtn;
     private TextView autostartBtn;
@@ -85,6 +86,7 @@ public class SettingsActivity extends Activity {
         permState = findViewById(R.id.permState);
         permHint = findViewById(R.id.permHint);
         reconnect = findViewById(R.id.reconnect);
+        deepFixHint = findViewById(R.id.deepFixHint);
         fgsState = findViewById(R.id.fgsState);
         batteryBtn = findViewById(R.id.batteryBtn);
         autostartBtn = findViewById(R.id.autostartBtn);
@@ -109,6 +111,7 @@ public class SettingsActivity extends Activity {
         findViewById(R.id.save).setOnClickListener(v -> save());
         findViewById(R.id.openAccess).setOnClickListener(v -> openListenerSettings());
         reconnect.setOnClickListener(v -> forceReconnect());
+        findViewById(R.id.deepFixBtn).setOnClickListener(v -> deepFix());
         findViewById(R.id.testBtn).setOnClickListener(v -> sendTest());
         findViewById(R.id.viewLog).setOnClickListener(v -> showFullLog());
         findViewById(R.id.refreshActive).setOnClickListener(v -> refreshActive());
@@ -227,9 +230,11 @@ public class SettingsActivity extends Activity {
             setChip(R.drawable.bg_chip_neutral, R.color.text_sub,
                     getString(R.string.chip_connecting));
             reconnect.setVisibility(View.GONE);
+            deepFixHint.setVisibility(View.GONE);
         } else {
             setChip(R.drawable.bg_chip_bad, R.color.danger, getString(R.string.chip_no_service));
             reconnect.setVisibility(View.VISIBLE);
+            deepFixHint.setVisibility(View.VISIBLE);
         }
     }
 
@@ -336,6 +341,37 @@ public class SettingsActivity extends Activity {
         Toast.makeText(this, "已请求重连", Toast.LENGTH_SHORT).show();
         rebindTries = 0;
         refreshLog();
+    }
+
+    /**
+     * 深度修复：把本应用从「通知使用权」列表里摘掉再写回，逼系统重新注册监听。
+     * 这就是用户手动"关开一次通知使用权"做的同一件事。
+     * 需要 WRITE_SECURE_SETTINGS（adb 授予一次），没有就给出命令。
+     */
+    private void deepFix() {
+        if (!ListenerFix.canFix(this)) {
+            showAdbDialog();
+            return;
+        }
+        boolean started = ListenerFix.forceReRegister(this, handler);
+        if (started) {
+            Toast.makeText(this, R.string.deep_fix_done, Toast.LENGTH_SHORT).show();
+            rebindTries = 0;
+            handler.postDelayed(this::kickService, 1200);
+        } else {
+            Toast.makeText(this, "修复没能执行，看日志里的原因", Toast.LENGTH_SHORT).show();
+        }
+        refreshLog();
+    }
+
+    private void showAdbDialog() {
+        String cmd = ListenerFix.adbCommand(this);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.deep_fix_dialog_title)
+                .setMessage(getString(R.string.deep_fix_dialog_msg) + "\n\n" + cmd)
+                .setPositiveButton(R.string.ok, null)
+                .setNeutralButton(R.string.copy_cmd, (d, which) -> copyToClipboard(cmd))
+                .show();
     }
 
     // ==================== 自检 ====================
