@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    设备管理器的能力声明。
+
+    这里【刻意留空】—— 不声明任何 uses-policies。
+    也就是说本应用只拿「设备管理器」这个身份，不获取以下任何能力：
+        · 锁屏 / 设置密码 / 清空数据
+        · 禁用摄像头
+        · 强制加密
+
+    拿这个身份的唯一目的：让系统把本应用当成"特权应用"，
+    从而在清理后台时不容易被干掉（MacroDroid 的清单里也有这个组件）。
+-->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies />
+</device-admin>

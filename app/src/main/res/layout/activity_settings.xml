@@ -147,8 +147,19 @@
                     android:text="@string/fgs_checking" />
 
                 <TextView
-                    android:id="@+id/overlayBtn"
+                    android:id="@+id/adminBtn"
                     style="@style/BtnPrimary"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/admin_grant" />
+
+                <TextView
+                    style="@style/Label"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/admin_hint" />
+
+                <TextView
+                    android:id="@+id/overlayBtn"
+                    style="@style/BtnGhost"
                     android:layout_marginTop="10dp"
                     android:text="@string/overlay_grant" />
 

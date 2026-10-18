@@ -3,6 +3,7 @@ package com.dsh.notifycleaner;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -133,6 +134,41 @@ public final class KeepAlive {
         // 之前用的是 getBroadcast + 在广播里自己 startForegroundService，很可能就是被这条限制挡掉的。
         return PendingIntent.getForegroundService(context, RESTART_REQUEST_CODE, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    // ==================== 设备管理器（保活的最后一张牌） ====================
+
+    /**
+     * 本应用是不是已经激活为设备管理器。
+     *
+     * 这条来自 MacroDroid 的清单：它有一个 MacroDroidDeviceAdminReceiver。
+     * 成为设备管理器的应用会被系统当成"特权应用"，后台清理时明显更宽容，
+     * 而且卸载必须先手动取消激活 —— 等于多了一道保护。
+     */
+    public static boolean isDeviceAdminActive(Context context) {
+        try {
+            DevicePolicyManager dpm = (DevicePolicyManager)
+                    context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+            return dpm != null && dpm.isAdminActive(new ComponentName(context, AdminReceiver.class));
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** 弹出系统的「激活设备管理器」确认框。返回 false 表示这台机器不支持。 */
+    public static boolean requestDeviceAdmin(Activity activity) {
+        try {
+            Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
+            intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN,
+                    new ComponentName(activity, AdminReceiver.class));
+            intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                    "只用来让系统在清理后台时保留本应用。"
+                            + "本应用没有申请任何设备管理能力，不能锁屏、不能清除数据、不能改密码。");
+            activity.startActivity(intent);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     // ==================== 悬浮窗（保活的关键一环） ====================

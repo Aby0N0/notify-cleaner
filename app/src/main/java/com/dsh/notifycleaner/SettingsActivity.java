@@ -46,6 +46,7 @@ public class SettingsActivity extends Activity {
     private TextView reconnect;
     private TextView deepFixHint;
     private TextView fgsState;
+    private TextView adminBtn;
     private TextView overlayBtn;
     private TextView batteryBtn;
     private TextView autostartBtn;
@@ -89,6 +90,7 @@ public class SettingsActivity extends Activity {
         reconnect = findViewById(R.id.reconnect);
         deepFixHint = findViewById(R.id.deepFixHint);
         fgsState = findViewById(R.id.fgsState);
+        adminBtn = findViewById(R.id.adminBtn);
         overlayBtn = findViewById(R.id.overlayBtn);
         batteryBtn = findViewById(R.id.batteryBtn);
         autostartBtn = findViewById(R.id.autostartBtn);
@@ -123,6 +125,16 @@ public class SettingsActivity extends Activity {
             openChannelSettings();
             findViewById(R.id.hideNotifWarn).setVisibility(View.VISIBLE);
             LogStore.add(this, "🔧 打开了常驻通知的渠道设置");
+        });
+
+        adminBtn.setOnClickListener(v -> {
+            if (KeepAlive.isDeviceAdminActive(this)) {
+                Toast.makeText(this, R.string.admin_granted, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!KeepAlive.requestDeviceAdmin(this)) {
+                Toast.makeText(this, "这台手机打不开设备管理器激活页", Toast.LENGTH_LONG).show();
+            }
         });
 
         overlayBtn.setOnClickListener(v -> {
@@ -282,7 +294,20 @@ public class SettingsActivity extends Activity {
     }
 
     private void refreshKeepAlive() {
-        // 悬浮窗权限：这条是从 MacroDroid 清单里挖到的关键差异，做成最醒目的按钮
+        // 设备管理器：MD 清单里最后一个我们缺的组件，做成最醒目的按钮
+        if (KeepAlive.isDeviceAdminActive(this)) {
+            adminBtn.setText(R.string.admin_granted);
+            adminBtn.setTextColor(getColor(R.color.primary_dark));
+            adminBtn.setBackgroundResource(R.drawable.bg_button_soft);
+            adminBtn.setAlpha(0.7f);
+        } else {
+            adminBtn.setText(R.string.admin_grant);
+            adminBtn.setTextColor(getColor(R.color.white));
+            adminBtn.setBackgroundResource(R.drawable.bg_button_primary);
+            adminBtn.setAlpha(1f);
+        }
+
+        // 悬浮窗权限
         if (KeepAlive.canDrawOverlays(this)) {
             overlayBtn.setText(R.string.overlay_granted);
             overlayBtn.setTextColor(getColor(R.color.primary_dark));
