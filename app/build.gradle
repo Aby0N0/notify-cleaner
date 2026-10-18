@@ -17,8 +17,8 @@ android {
         applicationId "com.dsh.notifycleaner"
         minSdk 26          // Android 8.0 起；这样就不需要为老系统准备 PNG 图标
         targetSdk 35
-        versionCode 18
-        versionName "18.0"
+        versionCode 19
+        versionName "19.0"
     }
 
     // 固定签名：debug 和 release 都用同一个密钥，保证新版本能覆盖安装旧版本

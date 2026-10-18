@@ -63,6 +63,8 @@ public class KeepAliveService extends Service {
     private int rebindAttempts;
     /** 上一次自动深度修复的时间，用来限流（60 秒最多一次，别把系统设置刷爆）。 */
     private long lastDeepFix;
+    /** 重绑循环是否正在跑。防止 onStartCommand 被反复调用时把循环重置掉。 */
+    private boolean loopActive;
     /** 那个 1×1 的透明悬浮窗。有了它，系统才真的把本应用当成"有可见窗口"的应用。 */
     private View overlayView;
 
@@ -128,32 +130,46 @@ public class KeepAliveService extends Service {
                             "✅ 监听服务已连上（共尝试 " + rebindAttempts + " 次）");
                 }
                 rebindAttempts = 0;
+                loopActive = false;
                 return;
             }
             if (rebindAttempts >= 60) {
                 // 3 秒一次，最多 3 分钟；之后交给看门狗闹钟重新拉起再试
+                loopActive = false;
                 return;
             }
             rebindAttempts++;
 
             // ===== 自动「深度修复」=====
-            // 这是目前唯一能从应用内部强制系统重新注册通知监听的手段。
+            // 这是目前唯一能从应用内部强制系统重新注册通知监听的手段，
+            // 而且已经用 adb 在真机上验证过了：
+            //   adb shell cmd notification disallow_listener <组件>  然后 allow_listener
+            //   → Live notification listeners 立刻从 21 变成 22，我们被绑上了。
+            //   用"直接改设置项"的方式（就是 ListenerFix 干的）同样有效。
             //
-            // 原理：vivo 划掉进程后，会把本应用从系统的「通知监听注册表」内部摘掉，
-            // 但 Settings.Secure 里那串 enabled_notification_listeners 还留着我们的名字。
-            // 结果就是：界面显示已授权，requestRebind() 却找不到对象，什么也不做。
-            // 唯一能自救的办法是把这个设置项改两次（先摘掉自己、400 毫秒后写回），
+            // 原理：vivo 划掉进程后，系统内部把本应用的监听器摘掉了，但
+            // Settings.Secure 里那串 enabled_notification_listeners 还留着我们的名字。
+            // 于是 requestRebind() 找不到对象、什么也不做（日志里就是这个现象）。
+            // 自救办法：把这个设置项改两次（先摘掉自己、400 毫秒后写回），
             // 逼系统走一遍"移除 → 重新注册"。
             //
             // 前提是拿到 WRITE_SECURE_SETTINGS（签名级权限，只能电脑授权一次）：
             //     adb shell pm grant com.dsh.notifycleaner android.permission.WRITE_SECURE_SETTINGS
-            // 授予一次之后永久有效，重启手机也不掉，之后这里就能全自动跑了。
-            if (rebindAttempts == 5 && ListenerFix.canFix(KeepAliveService.this)) {
+            // 授予一次之后永久有效，重启手机、覆盖安装都不掉。
+            //
+            // 触发时机：第 3 次（约 9 秒）、第 10、20、40 次各试一次，每次间隔至少 60 秒。
+            boolean deepFixMoment = rebindAttempts == 3
+                    || rebindAttempts == 10
+                    || rebindAttempts == 20
+                    || rebindAttempts == 40;
+            if (deepFixMoment && ListenerFix.canFix(KeepAliveService.this)) {
                 long now = System.currentTimeMillis();
                 if (now - lastDeepFix > 60_000L) {
                     lastDeepFix = now;
-                    LogStore.add(KeepAliveService.this, "🔧 自动深度修复：强制系统重新注册通知监听");
+                    LogStore.add(KeepAliveService.this,
+                            "🔧 自动深度修复：强制系统重新注册通知监听（第 " + rebindAttempts + " 轮）");
                     if (ListenerFix.forceReRegister(KeepAliveService.this, handler)) {
+                        // 给系统 1.5 秒走完"移除 → 重新注册"，然后继续看有没有连上
                         handler.postDelayed(this, 1500);
                         return;
                     }
@@ -224,9 +240,18 @@ public class KeepAliveService extends Service {
 
         // 进程刚被拉起来时，通知监听服务往往还没绑上。启动一个反复重试的循环，
         // 每 3 秒请求一次，直到连上为止（系统实测要 10～20 秒才会真的绑）。
-        handler.removeCallbacks(rebindLoop);
-        rebindAttempts = 0;
-        handler.postDelayed(rebindLoop, 500);
+        //
+        // ⚠️ 这里原来有个致命 bug：每次都无条件 removeCallbacks + rebindAttempts=0。
+        // 而 onStartCommand 会被反复调用（看门狗、JobScheduler、广播都会触发），
+        // 于是计数器永远停在 1 —— 日志里"请求重绑（第 1 次）"永远不变就是这个原因，
+        // 依赖"第 5 次"触发的自动深度修复也就永远等不到。
+        // 现在改成：循环已经在跑就不要重开。
+        if (!loopActive) {
+            loopActive = true;
+            rebindAttempts = 0;
+            handler.removeCallbacks(rebindLoop);
+            handler.postDelayed(rebindLoop, 500);
+        }
 
         // 有悬浮窗权限就挂一个 1×1 透明窗，让系统认为本应用"有可见窗口"
         ensureOverlay();
@@ -271,6 +296,7 @@ public class KeepAliveService extends Service {
     @Override
     public void onDestroy() {
         sRunning = false;
+        loopActive = false;
         handler.removeCallbacks(rebindLoop);
         removeOverlay();
         LogStore.add(this, "🛡️ 常驻服务被销毁，1 秒后自动重启");

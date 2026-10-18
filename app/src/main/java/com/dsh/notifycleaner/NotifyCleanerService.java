@@ -117,6 +117,8 @@ public class NotifyCleanerService extends NotificationListenerService {
         sInstance = this;
         connected = true;
         attempts.clear();
+        // 记下"我们确实拿到过通知使用权"，供 ListenerFix 在设置项被清空时自救
+        ListenerFix.markGranted(this);
         LogStore.add(this, "🔌 通知使用权已连接，开始工作");
         // 刚连上时立刻补一次巡检：万一之前进程被杀，有漏掉的通知现在补清
         scheduleTick(300);

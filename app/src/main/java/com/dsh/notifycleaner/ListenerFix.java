@@ -44,8 +44,20 @@ public final class ListenerFix {
     /** 改之前先把原值存下来：万一中途进程挂了，下次启动能恢复，不会把权限弄丢。 */
     private static final String PENDING = "pendingOriginal";
     private static final String PERMISSION = "android.permission.WRITE_SECURE_SETTINGS";
+    /** 记录"本应用曾经真的连上过通知监听"，用于设置项被意外清空时的自救。 */
+    private static final String EVER_GRANTED = "everGranted";
 
     private ListenerFix() {
+    }
+
+    /** 通知监听成功连上时调用，记下"我们确实有过这个权限"。 */
+    public static void markGranted(Context context) {
+        try {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putBoolean(EVER_GRANTED, true).apply();
+        } catch (Throwable ignored) {
+            // 记不上只是少了这一层自救，不影响别的
+        }
     }
 
     /** 有没有拿到 WRITE_SECURE_SETTINGS（只能靠 adb 授予）。 */
@@ -74,7 +86,16 @@ public final class ListenerFix {
             if (current == null || current.isEmpty()) return false;
 
             String ours = new ComponentName(context, NotifyCleanerService.class).flattenToString();
-            if (!current.contains(ours)) return false;
+            if (!current.contains(ours)) {
+                // 我们的名字不见了 —— 正常情况下不该发生，但如果真发生了，
+                // 而且我们确认过"曾经连上过"，就把它加回去。这是最后一道自救。
+                SharedPreferences p0 = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+                if (!p0.getBoolean(EVER_GRANTED, false)) return false;
+                String rebuilt = current.isEmpty() ? ours : current + ":" + ours;
+                Settings.Secure.putString(cr, SECURE_KEY, rebuilt);
+                LogStore.add(context, "🔧 深度修复：通知监听设置里找不到本应用，已重新写回");
+                return true;
+            }
 
             // 把我们的组件从列表里摘掉，其余的应用原样保留
             List<String> parts = new ArrayList<>();
