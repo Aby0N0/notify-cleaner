@@ -53,6 +53,7 @@
     <string name="keepalive_hide_notif">隐藏这条常驻通知（可能导致被杀）</string>
     <string name="keepalive_hide_warn">提醒：把渠道彻底关掉之后，系统很可能因此把本应用杀掉 —— MacroDroid 的文档也是这么说的。真遇到又开始失效，回这里重新打开就行。</string>
     <string name="keepalive_battery">把本应用设为「不限制后台」</string>
+    <string name="keepalive_battery_urgent">① 先点这里：设为「不限制后台」（很重要）</string>
     <string name="keepalive_battery_ok">已在白名单里 ✓</string>
     <string name="keepalive_autostart">打开系统的「自启动管理」</string>
     <string name="keepalive_autostart_fail">没能直接打开自启动页（已帮你打开本应用的详情页）。请到「i管家 → 应用管理 → 权限管理 → 自启动」，或「设置 → 应用与权限 → 权限管理 → 自启动」里，把「通知清理器」打开。</string>
@@ -72,6 +73,7 @@
     <string name="log_empty">还没有记录。\n授权之后，收到被监控应用的通知，这里就会一行一行记下来。</string>
     <string name="log_clear">清空</string>
     <string name="log_copy">复制</string>
+    <string name="log_share">分享</string>
     <string name="log_close">关闭</string>
 
     <string name="active_title">当前通知</string>

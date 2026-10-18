@@ -253,9 +253,14 @@ public class SettingsActivity extends Activity {
     private void refreshKeepAlive() {
         if (KeepAlive.isIgnoringBatteryOptimizations(this)) {
             batteryBtn.setText(R.string.keepalive_battery_ok);
-            batteryBtn.setAlpha(0.65f);
+            batteryBtn.setTextColor(getColor(R.color.primary_dark));
+            batteryBtn.setBackgroundResource(R.drawable.bg_button_soft);
+            batteryBtn.setAlpha(0.7f);
         } else {
-            batteryBtn.setText(R.string.keepalive_battery);
+            // 没进白名单时做成醒目的实心按钮 —— 这一项不做，前面所有机制都可能白费
+            batteryBtn.setText(R.string.keepalive_battery_urgent);
+            batteryBtn.setTextColor(getColor(R.color.white));
+            batteryBtn.setBackgroundResource(R.drawable.bg_button_primary);
             batteryBtn.setAlpha(1f);
         }
     }
@@ -514,12 +519,27 @@ public class SettingsActivity extends Activity {
                 .setTitle(R.string.log_title)
                 .setView(container)
                 .setPositiveButton(R.string.log_close, null)
-                .setNeutralButton(R.string.log_copy, (d, which) -> copyToClipboard(LogStore.getAll(this)))
+                .setNeutralButton(R.string.log_share, (d, which) -> shareLog())
                 .setNegativeButton(R.string.log_clear, (d, which) -> {
                     LogStore.clear(this);
                     refreshLog();
                 })
                 .show();
+    }
+
+    /** 把日志用系统分享面板发出去 —— 直接发给我最省事，不用截图也不用复制粘贴。 */
+    private void shareLog() {
+        try {
+            String all = LogStore.getAll(this);
+            if (all.trim().isEmpty()) all = "（暂无记录）";
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("text/plain");
+            send.putExtra(Intent.EXTRA_SUBJECT, "通知清理器日志");
+            send.putExtra(Intent.EXTRA_TEXT, all);
+            startActivity(Intent.createChooser(send, getString(R.string.log_share)));
+        } catch (Throwable t) {
+            Toast.makeText(this, "分享失败：" + t, Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** 一键把日志复制到剪贴板 —— 比截图方便，也方便直接粘给我。 */
