@@ -127,10 +127,15 @@ public class NotifyCleanerService extends NotificationListenerService {
         Judgement j = judge(config, sbn);
 
         if (j.watched) {
+            String name = label(sbn.getPackageName());
             if (j.clear) {
-                LogStore.add(this, "👀 收到 " + label(sbn.getPackageName()) + "｜" + clip(j.title));
+                // 命中了：正文比标题更有信息量，优先显示正文
+                CharSequence shown = j.text != null && j.text.length() > 0 ? j.text : j.title;
+                LogStore.add(this, "👀 收到 " + name + "｜" + clip(shown, 20));
             } else {
-                LogStore.add(this, "➖ 收到 " + label(sbn.getPackageName()) + "｜" + clip(j.title)
+                // 没命中：标题和正文都打出来，用户一看就知道该改哪个框
+                LogStore.add(this, "➖ 收到 " + name
+                        + "｜标题「" + clip(j.title, 12) + "」正文「" + clip(j.text, 14) + "」"
                         + " → 不清（" + j.reason + "）");
             }
         }
@@ -268,7 +273,13 @@ public class NotifyCleanerService extends NotificationListenerService {
             return j;
         }
         if (!self && !config.matchesText(j.title, j.text)) {
-            j.reason = "标题/正文不含关键字";
+            // 说清楚是哪个框没过，不然用户只能瞎猜
+            if (!config.titleKeyword.isEmpty()
+                    && (j.title == null || !j.title.toString().contains(config.titleKeyword))) {
+                j.reason = "标题不含「" + config.titleKeyword + "」";
+            } else {
+                j.reason = "正文不含「" + config.textKeyword + "」";
+            }
             return j;
         }
         j.clear = true;
@@ -343,10 +354,14 @@ public class NotifyCleanerService extends NotificationListenerService {
     }
 
     private static String clip(CharSequence s) {
-        if (s == null) return "（无标题）";
+        return clip(s, 24);
+    }
+
+    private static String clip(CharSequence s, int max) {
+        if (s == null) return "（空）";
         String t = s.toString().replace('\n', ' ').trim();
-        if (t.isEmpty()) return "（无标题）";
-        return t.length() <= 24 ? t : t.substring(0, 24) + "…";
+        if (t.isEmpty()) return "（空）";
+        return t.length() <= max ? t : t.substring(0, max) + "…";
     }
 
     private static String shortMsg(Throwable t) {

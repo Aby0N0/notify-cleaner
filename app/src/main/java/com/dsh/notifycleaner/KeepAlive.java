@@ -88,10 +88,18 @@ public final class KeepAlive {
 
     /**
      * 打开系统的"自启动管理"页面。各家 ROM 的类名都不一样，挨个试，第一个能打开的就用。
-     * 返回 false 表示都没打开成功，界面那边改成显示手动操作步骤。
+     *
+     * 返回 true = 真的打开了自启动页；false = 没找到，已退回到"本应用的详情页"
+     * （用户在那里能找到权限 / 电池 / 后台管理的入口）。
      */
     public static boolean openAutostartSettings(Activity activity) {
         String[][] candidates = {
+                // vivo / iQOO（OriginOS、Funtouch OS）—— 放在最前面，这是最常见的机型
+                {"com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"},
+                {"com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.PurviewTabActivity"},
+                {"com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BackgroundStartUpActivity"},
+                {"com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"},
+                {"com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager"},
                 // 小米 / Redmi（HyperOS、MIUI）
                 {"com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"},
                 // 华为 / 荣耀
@@ -101,9 +109,6 @@ public final class KeepAlive {
                 {"com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"},
                 {"com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity"},
                 {"com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"},
-                // vivo / iQOO
-                {"com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"},
-                {"com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"},
                 // 三星
                 {"com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity"},
         };
@@ -117,6 +122,19 @@ public final class KeepAlive {
                 // 这一家不适用，试下一家
             }
         }
+        // 全都不行：退到本应用的应用详情页，至少给个能走到权限/电池设置的入口
+        openAppDetails(activity);
         return false;
+    }
+
+    /** 打开本应用的系统详情页（权限、电池、存储都从这里进）。 */
+    public static void openAppDetails(Activity activity) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + activity.getPackageName()));
+            activity.startActivity(intent);
+        } catch (Throwable ignored) {
+            // 连详情页都打不开就只能靠界面上的文字提示了
+        }
     }
 }

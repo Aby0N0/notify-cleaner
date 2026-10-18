@@ -27,18 +27,22 @@
     <string name="packages_hint">com.ss.android.lark,com.larksuite.suite</string>
     <string name="delay_label">收到通知后等多少毫秒再清除</string>
     <string name="delay_hint">10000</string>
-    <string name="keyword_label">关键字：标题或正文里出现它就算（留空 = 不限制）</string>
-    <string name="keyword_hint">DSH助手</string>
-    <string name="keyword_explain">飞书通知的「标题」是应用名「飞书」，机器人名字在正文里。这个框两处都会查，所以填「DSH助手」就能匹配到。</string>
+
+    <string name="title_label">标题必须包含（留空 = 不限制）</string>
+    <string name="title_hint">选填</string>
+    <string name="text_label">正文必须包含（留空 = 不限制）</string>
+    <string name="text_hint">选填</string>
+    <string name="keyword_explain">两个都填 = 必须同时满足；只填一个 = 只查那一个。多数应用的通知标题是应用名，内容在正文里，所以关键字一般填在正文框。</string>
+
     <string name="save">保存</string>
     <string name="save_done">已保存</string>
 
     <string name="keepalive_title">别让系统杀掉它</string>
-    <string name="keepalive_hint">国产系统（小米 / 华为 / OPPO / vivo）划掉多任务时会把应用进程直接杀掉，服务就断了。下面两招能明显减少这种情况。</string>
+    <string name="keepalive_hint">国产系统（vivo OriginOS、小米 HyperOS、华为、OPPO 等）在划掉多任务时可能直接杀掉应用进程，服务就断了。下面两招能明显减少这种情况。</string>
     <string name="keepalive_battery">把本应用设为「不限制后台」</string>
     <string name="keepalive_battery_ok">已在白名单里 ✓</string>
     <string name="keepalive_autostart">打开系统的「自启动管理」</string>
-    <string name="keepalive_autostart_fail">这台手机没有通用的自启动页面，请手动到 设置 → 应用管理 → 通知清理器 → 自启动 / 后台运行 里打开。</string>
+    <string name="keepalive_autostart_fail">没能直接打开自启动页（已帮你打开本应用的详情页）。请到「i管家 → 应用管理 → 权限管理 → 自启动」，或「设置 → 应用与权限 → 权限管理 → 自启动」里，把「通知清理器」打开。</string>
 
     <string name="selftest_title">自检</string>
     <string name="selftest_hint">点一下，本应用自己发一条通知，然后看它会不会按上面的延迟时间自动消失。这是唯一能证明「整条链路通不通」的办法。</string>

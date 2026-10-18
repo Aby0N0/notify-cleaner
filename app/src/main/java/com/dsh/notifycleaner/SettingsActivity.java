@@ -57,7 +57,8 @@ public class SettingsActivity extends Activity {
     private Switch enabledBox;
     private EditText packagesBox;
     private EditText delayBox;
-    private EditText keywordBox;
+    private EditText titleBox;
+    private EditText textBox;
     private TextView testResult;
     private TextView logView;
     private TextView activeCount;
@@ -81,7 +82,8 @@ public class SettingsActivity extends Activity {
         enabledBox = findViewById(R.id.enabled);
         packagesBox = findViewById(R.id.packages);
         delayBox = findViewById(R.id.delay);
-        keywordBox = findViewById(R.id.keyword);
+        titleBox = findViewById(R.id.titleKeyword);
+        textBox = findViewById(R.id.textKeyword);
         testResult = findViewById(R.id.testResult);
         logView = findViewById(R.id.logView);
         activeCount = findViewById(R.id.activeCount);
@@ -91,7 +93,8 @@ public class SettingsActivity extends Activity {
         enabledBox.setChecked(config.enabled);
         packagesBox.setText(TextUtils.join(",", config.packages));
         delayBox.setText(String.valueOf(config.delayMs));
-        keywordBox.setText(config.keyword);
+        titleBox.setText(config.titleKeyword);
+        textBox.setText(config.textKeyword);
 
         findViewById(R.id.save).setOnClickListener(v -> save());
         findViewById(R.id.openAccess).setOnClickListener(v -> openListenerSettings());
@@ -117,7 +120,7 @@ public class SettingsActivity extends Activity {
             } else {
                 keepAliveHint.setText(R.string.keepalive_autostart_fail);
                 keepAliveHint.setVisibility(View.VISIBLE);
-                LogStore.add(this, "🔧 这台手机没有通用的自启动页面");
+                LogStore.add(this, "🔧 没找到自启动页，已打开本应用的详情页");
             }
         });
 
@@ -267,7 +270,8 @@ public class SettingsActivity extends Activity {
                 enabledBox.isChecked(),
                 packagesBox.getText().toString(),
                 delay,
-                keywordBox.getText().toString());
+                titleBox.getText().toString(),
+                textBox.getText().toString());
 
         delayBox.setText(String.valueOf(delay));
         Toast.makeText(this, R.string.save_done, Toast.LENGTH_SHORT).show();
@@ -478,15 +482,23 @@ public class SettingsActivity extends Activity {
         }
 
         CharSequence rawTitle = null;
+        CharSequence rawText = null;
         if (sbn.getNotification() != null && sbn.getNotification().extras != null) {
             rawTitle = sbn.getNotification().extras.getCharSequence(Notification.EXTRA_TITLE);
+            rawText = sbn.getNotification().extras.getCharSequence(Notification.EXTRA_TEXT);
         }
-        String title = rawTitle == null ? "（无标题）" : rawTitle.toString().replace('\n', ' ').trim();
-        if (title.isEmpty()) title = "（无标题）";
-        if (title.length() > 18) title = title.substring(0, 18) + "…";
 
         long ageSec = Math.max(0, (System.currentTimeMillis() - sbn.getPostTime()) / 1000);
-        return label + "  ·  " + title + "  ·  " + ageSec + " 秒前";
+        // 标题和正文都列出来 —— 这是判断"关键字该填哪个框"的唯一可靠依据
+        return label + "  ·  " + ageSec + " 秒前\n"
+                + "标题「" + shortText(rawTitle, 14) + "」正文「" + shortText(rawText, 18) + "」";
+    }
+
+    private String shortText(CharSequence s, int max) {
+        if (s == null) return "空";
+        String t = s.toString().replace('\n', ' ').trim();
+        if (t.isEmpty()) return "空";
+        return t.length() <= max ? t : t.substring(0, max) + "…";
     }
 
     private void addRow(String text) {
