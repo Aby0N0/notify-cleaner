@@ -17,5 +17,14 @@ public class App extends Application {
         // 上一次「深度修复」如果没走完（进程中途被杀），这里把设置项恢复回去，
         // 免得把通知使用权弄丢。
         ListenerFix.restore(this);
+
+        // 每次进程启动都重新排一次看门狗。
+        // 看门狗不是"重复闹钟"（那种会被系统大幅推迟，见 KeepAlive.schedule 的注释），
+        // 而是"响一次、排下一次"的接力，所以必须有一个地方把它续上 —— 进程启动是最可靠的时机。
+        try {
+            KeepAlive.schedule(this);
+        } catch (Throwable ignored) {
+            // 排不上还有 JobScheduler 那条路
+        }
     }
 }

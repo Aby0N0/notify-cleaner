@@ -22,12 +22,18 @@ public class KeepAliveReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (context == null) return;
         String action = intent == null ? null : intent.getAction();
 
-        // 开机 / 应用更新之后，闹钟会被系统清掉，重新排一个
+        // ⚠️ 顺序很重要：先把自己续上，再干活。
+        // 看门狗已经不是"重复闹钟"了 —— 因为 setInexactRepeating 会被系统大幅推迟（见 KeepAlive.schedule 的注释）。
+        // 现在改成"每次响完自己排下一次"，所以这一行必须放在最前面：
+        // 万一后面的代码抛异常，至少下一次巡检还排着，不会彻底断掉。
+        KeepAlive.schedule(context);
+
+        // 开机 / 应用更新之后，系统会清掉已排的闹钟，上面的 schedule 已经补上了，这里只记一笔
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)
                 || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
-            KeepAlive.schedule(context);
             LogStore.add(context, "⏰ 开机或更新完成，已重新排好看门狗");
         }
 
@@ -42,7 +48,7 @@ public class KeepAliveReceiver extends BroadcastReceiver {
                     new ComponentName(context, NotifyCleanerService.class));
             LogStore.add(context, "⏰ 看门狗：服务没连上，已请求重连");
         } catch (Throwable ignored) {
-            // 拿不到就算了，5 分钟后再试
+            // 拿不到就算了，下一轮巡检再试
         }
     }
 }

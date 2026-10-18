@@ -95,6 +95,31 @@
         </receiver>
 
         <!--
+            透明空窗口。抄的是 MacroDroid 清单里的 com.arlosoft.macrodroid.DummyActivity。
+            用户永远看不到它，作用是：被划掉的那一刻把进程重新变成"有界面的应用"，
+            从而绕过 Android 12+ "后台不允许启动前台服务"的限制。
+            这些属性都是照 MD 抄的：透明主题、无历史、不进最近任务、独立任务栈。
+        -->
+        <activity
+            android:name=".DummyActivity"
+            android:autoRemoveFromRecents="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:stateNotNeeded="true"
+            android:taskAffinity="com.dsh.notifycleaner.dummy"
+            android:theme="@style/TransparentTheme" />
+
+        <!--
+            后台启动前台服务被拒后的重试。抄的是 MacroDroid 的 FGSRetryReceiver。
+            由 KeepAlive.retryFgsStart() 排的 4 秒闹钟触发。
+        -->
+        <receiver
+            android:name=".FgsRetryReceiver"
+            android:exported="false" />
+
+        <!--
             靠系统广播把自己叫醒。抄的是 MacroDroid 里 crashguard 库的 PowerReceiver /
             NetworkReceiver：这类广播由系统发出，**不需要「自启动」权限**，
             每插一次充电器、切一次网络，就多一次把自己救回来的机会。

@@ -157,6 +157,10 @@ public class KeepAliveService extends Service {
         } catch (Throwable t) {
             // 不再静默吞掉：失败原因要能被用户看到
             LogStore.add(context, "⚠️ 启动常驻服务失败：" + shortMsg(t));
+            // 关键补救：Android 12+ 在后台启动前台服务会被拒（ForegroundServiceStartNotAllowedException）。
+            // 只记日志就放弃的话，服务就再也起不来了。这里 4 秒后再试一次 ——
+            // 这是 MacroDroid 的 FGSRetryReceiver 干的事。
+            KeepAlive.retryFgsStart(context);
         }
     }
 
@@ -217,7 +221,11 @@ public class KeepAliveService extends Service {
      */
     @Override
     public void onTaskRemoved(Intent rootIntent) {
-        LogStore.add(this, "♻️ 任务被划掉，1 秒后自动重启");
+        LogStore.add(this, "♻️ 任务被划掉，正在把自己拉回来");
+        // 双管齐下，两招都是 MacroDroid 在用的：
+        //   1. 立刻起一个透明 Activity，让进程变成"前台应用"（这一招最快、最有效）；
+        //   2. 再排一个 1 秒后的闹钟兜底，万一 Activity 被系统拦下来。
+        KeepAlive.bringBack(this);
         KeepAlive.scheduleRestart(this, 1000);
         super.onTaskRemoved(rootIntent);
     }

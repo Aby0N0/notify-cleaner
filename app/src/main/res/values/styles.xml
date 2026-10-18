@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!--
+        完全透明的主题，给 DummyActivity 用。
+        窗口本身不画任何东西、不挡任何东西，用户完全看不到 —— 它只是用来
+        让进程获得"有界面的应用"这个身份。
+        MacroDroid 用的是 Theme.TransparentGeneral，效果一样。
+    -->
+    <style name="TransparentTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
     <!-- 应用主题：不要系统那条黑 ActionBar，标题我们自己画 -->
     <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:colorPrimary">@color/primary</item>

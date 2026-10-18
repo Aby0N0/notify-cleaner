@@ -64,6 +64,10 @@ public class RestartJobService extends JobService {
     public boolean onStartJob(JobParameters params) {
         LogStore.add(this, "🧩 系统任务唤醒（JobScheduler）");
 
+        // 把看门狗续上。JobScheduler 周期任务最快也要 15 分钟，
+        // 而看门狗是 1 分钟级的，两者互补：任务唤醒时顺手把 1 分钟那条接力排好。
+        KeepAlive.schedule(this);
+
         // 拉起前台服务
         KeepAliveService.start(this);
 

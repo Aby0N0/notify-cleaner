@@ -9,7 +9,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Build;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.provider.Settings;
 
 /**
@@ -40,18 +42,74 @@ public final class KeepAlive {
     private KeepAlive() {
     }
 
-    /** 排一个重复闹钟。重复调用是安全的：同一个 PendingIntent 会被替换，不会堆起来。 */
+    /**
+     * 排下一次看门狗（默认 1 分钟后）。
+     *
+     * ⚠️ 这里原来有一个**致命**的写法错误，是从 MacroDroid 反编译代码对照出来的：
+     *
+     * 原来用的是 setInexactRepeating(AlarmManager.RTC, ...) ——
+     *   · RTC 而不是 RTC_WAKEUP：设备睡着时**不唤醒**，只在下次自己醒的时候补发；
+     *   · setInexactRepeating：这是"非精确重复"闹钟，系统会**大幅批处理、往后推**。
+     *     Android 6 的 Doze、加上国产 ROM 的后台管控，会把它推到几小时以后。
+     * 结果就是：我们以为"每分钟巡检一次"，实际上几乎**从来没按时响过**。
+     * 日志能印证这一点 —— 真正把进程叫醒的全是 JobScheduler（15 分钟一次），
+     * 所以中间才有 5 分钟以上的空洞。
+     *
+     * MacroDroid 的做法（反编译 wo.smali 里的 b() 方法得到）：
+     *     canScheduleExactAlarms()
+     *         ? setExactAndAllowWhileIdle(RTC_WAKEUP, ...)
+     *         : setAndAllowWhileIdle(RTC_WAKEUP, ...)
+     * 而且它**根本不用重复闹钟** —— 每次响完，由接收器自己排下一次。
+     *
+     * 这里照抄。重复调用是安全的：同一个 PendingIntent 会被覆盖，不会堆起来。
+     */
     public static void schedule(Context context) {
+        schedule(context, INTERVAL_MS);
+    }
+
+    /** 排一个 delayMs 之后触发的看门狗（非重复；响完由 KeepAliveReceiver 再排下一次）。 */
+    public static void schedule(Context context, long delayMs) {
         try {
             AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
             if (am == null) return;
-            am.setInexactRepeating(
-                    AlarmManager.RTC,
-                    System.currentTimeMillis() + INTERVAL_MS,
-                    INTERVAL_MS,
-                    pending(context));
+            PendingIntent pi = pending(context);
+            // 必须先 cancel：老版本排的是 setInexactRepeating，
+            // 不取消的话那个"僵尸重复闹钟"会一直留着，和新的精确闹钟打架。
+            try {
+                am.cancel(pi);
+            } catch (Throwable ignored) {
+                // 取消失败也继续，顶多多响一次
+            }
+            setWakeup(am, SystemClock.elapsedRealtime() + delayMs, pi);
         } catch (Throwable ignored) {
             // 排不上就算了，别让界面崩
+        }
+    }
+
+    /** 能不能排"精确闹钟"。声明了 USE_EXACT_ALARM 时通常恒为 true，但个别 ROM 会返回 false。 */
+    static boolean canExact(AlarmManager am) {
+        try {
+            if (Build.VERSION.SDK_INT >= 31) return am.canScheduleExactAlarms();
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /**
+     * 排一个"会唤醒设备、能穿透 Doze"的闹钟。
+     *
+     * 两个要点：
+     *   · RTC_WAKEUP：到点会把 CPU 叫醒，而不是等设备自己醒；
+     *   · AllowWhileIdle：在 Doze 深度省电状态下也允许触发（系统限制最多每 9 分钟一次，
+     *     但比被推迟几小时强太多）。
+     */
+    static void setWakeup(AlarmManager am, long triggerElapsedRealtime, PendingIntent pi) {
+        if (canExact(am)) {
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerElapsedRealtime, pi);
+        } else {
+            // 没有精确闹钟权限：至少保证"会唤醒 + 能穿透 Doze"，只是时间点可能被系统挪动
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerElapsedRealtime, pi);
         }
     }
 
@@ -111,13 +169,10 @@ public final class KeepAlive {
             AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
             if (am == null) return;
             PendingIntent pi = restartPending(context);
-            long triggerAt = now + delayMs;
-            try {
-                // 有精确闹钟权限就用精确的，没有就退回普通闹钟（可能晚几秒，问题不大）
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-            } catch (Throwable ignored) {
-                am.set(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-            }
+            // 和看门狗用同一套：RTC_WAKEUP + 精确（有权限时），能穿透 Doze。
+            // 原来这里靠 try/catch 兜底，但 Android 12+ 在没有精确闹钟权限时
+            // 不一定会抛异常，而是悄悄把闹钟挪走 —— 所以改成显式判断。
+            setWakeup(am, SystemClock.elapsedRealtime() + delayMs, pi);
 
             // 同时排一个 JobScheduler 任务。这条路不依赖「自启动」权限 ——
             // 闹钟在国产 ROM 上会被自启动开关挡住，系统任务不会。
@@ -134,6 +189,72 @@ public final class KeepAlive {
         // 之前用的是 getBroadcast + 在广播里自己 startForegroundService，很可能就是被这条限制挡掉的。
         return PendingIntent.getForegroundService(context, RESTART_REQUEST_CODE, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    // ==================== 被划掉后「立刻拉回前台」 ====================
+
+    /**
+     * 用一个透明窗口把进程拉回前台。
+     *
+     * 这是 MacroDroid 真正的手段，反编译 MacroDroidService.onTaskRemoved() 得到的原文：
+     *
+     *     "MacroDroid service task removed - attempting restart mechanism"
+     *     new Intent(this, DummyActivity.class)
+     *     addFlags(FLAG_ACTIVITY_NEW_TASK)
+     *     startActivity(...)
+     *
+     * 为什么这招比"排闹钟"管用：
+     *   · 排闹钟要等系统把进程重新拉起来，而国产 ROM 在"后台"状态下会拒绝启动前台服务
+     *     （Android 12+ 的 ForegroundServiceStartNotAllowedException），于是闹钟响了也没用；
+     *   · 直接起一个 Activity，进程立刻变成"有界面的应用"，这条限制就不适用了，
+     *     前台服务、通知监听的重绑都变得合法。
+     *
+     * DummyActivity 是透明、无历史、不进最近任务的，用户完全看不见。
+     * 另外：申请过「显示在其他应用上层」（SYSTEM_ALERT_WINDOW）的应用，
+     * 系统会额外豁免"后台启动 Activity"的限制 —— 这也是 MD 要那个权限的原因。
+     */
+    public static void bringBack(Context context) {
+        try {
+            Intent intent = new Intent(context, DummyActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                    | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+            context.startActivity(intent);
+            LogStore.add(context, "🪟 已用透明窗口把进程拉回前台");
+        } catch (Throwable t) {
+            // Android 10+ 可能拦下"后台启动 Activity"，拦下也不要紧，还有闹钟那条路
+            LogStore.add(context, "⚠️ 透明窗口拉起被拒：" + t.getClass().getSimpleName());
+        }
+    }
+
+    // ==================== 后台启动前台服务被拒后的重试 ====================
+
+    /** 重试请求码，和看门狗、重启闹钟都错开。 */
+    private static final int FGS_RETRY_REQUEST_CODE = 4003;
+    /** MD 里这个延迟是 4000 毫秒（反编译看到常量 0xfa0）。 */
+    static final long FGS_RETRY_DELAY_MS = 4000L;
+
+    /**
+     * 4 秒后重试启动前台服务。
+     *
+     * 抄的是 MacroDroid 的 FGSRetryReceiver。Android 12 起，应用在后台直接
+     * startForegroundService() 会抛 ForegroundServiceStartNotAllowedException，
+     * 抛了以后如果就此放弃，前台服务就再也起不来了 —— 表现就是「划掉之后彻底死掉」。
+     * MD 的做法是：捕获到之后排一个 4 秒后的广播，再试一次。
+     */
+    public static void retryFgsStart(Context context) {
+        try {
+            AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (am == null) return;
+            Intent intent = new Intent(context, FgsRetryReceiver.class);
+            intent.setAction(FgsRetryReceiver.ACTION_RETRY);
+            PendingIntent pi = PendingIntent.getBroadcast(context, FGS_RETRY_REQUEST_CODE, intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            setWakeup(am, SystemClock.elapsedRealtime() + FGS_RETRY_DELAY_MS, pi);
+            LogStore.add(context, "⏰ 前台服务启动被拒，4 秒后重试");
+        } catch (Throwable t) {
+            LogStore.add(context, "⚠️ 排前台服务重试闹钟失败：" + t.getClass().getSimpleName());
+        }
     }
 
     // ==================== 设备管理器（保活的最后一张牌） ====================
