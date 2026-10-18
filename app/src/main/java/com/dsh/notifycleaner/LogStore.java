@@ -4,6 +4,10 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -49,6 +53,16 @@ public final class LogStore {
             // 打不出来不影响存盘
         }
 
+        // 再写一份到外部存储，并且**同步刷盘**。
+        //
+        // 这一条是专门为"进程被瞬间杀掉"这种情况加的：
+        //   · SharedPreferences 用的是 apply()，异步落盘，进程马上死就丢了；
+        //   · logcat 在 vivo 上被系统关掉了，普通应用打不出日志；
+        //   · 外部存储这个位置用 adb 可以直接读：
+        //         adb shell cat /sdcard/Android/data/com.dsh.notifycleaner/files/log.txt
+        // 有了它，就能知道 onTaskRemoved 这种"死前最后一刻"的回调到底有没有被调用。
+        appendExternal(context, line);
+
         SharedPreferences prefs = prefs(context);
         String old = prefs.getString(KEY, "");
         String merged = old == null || old.isEmpty() ? line : line + "\n" + old;
@@ -83,5 +97,40 @@ public final class LogStore {
     private static SharedPreferences prefs(Context context) {
         return context.getApplicationContext()
                 .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    /**
+     * 把一行日志追加到外部存储的 log.txt，并且强制刷到磁盘。
+     *
+     * 关键在 out.getFD().sync()：它保证这一行真的写进了闪存才返回。
+     * 不加它的话，进程被 SIGKILL 时缓冲区里的内容会整段丢失 ——
+     * 而"进程被杀的最后一刻发生了什么"恰恰是我们最需要看到的。
+     */
+    private static void appendExternal(Context context, String line) {
+        FileOutputStream out = null;
+        try {
+            File dir = context.getExternalFilesDir(null);
+            if (dir == null) return;
+            if (!dir.exists() && !dir.mkdirs()) return;
+            File f = new File(dir, "log.txt");
+            // 防止无限增长：超过 512KB 就清空重来
+            if (f.length() > 512 * 1024) {
+                //noinspection ResultOfMethodCallIgnored
+                f.delete();
+            }
+            out = new FileOutputStream(f, true);
+            out.write((line + "\n").getBytes(StandardCharsets.UTF_8));
+            out.flush();
+            out.getFD().sync();
+        } catch (Throwable ignored) {
+            // 外部存储不可用（没挂载/没权限）就算了，不能因为日志把应用搞崩
+        } finally {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
     }
 }
