@@ -9,10 +9,15 @@ import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowManager;
 
 /**
  * 前台服务：这个应用能"划掉还活着"的唯一原因。
@@ -56,6 +61,53 @@ public class KeepAliveService extends Service {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int rebindAttempts;
+    /** 那个 1×1 的透明悬浮窗。有了它，系统才真的把本应用当成"有可见窗口"的应用。 */
+    private View overlayView;
+
+    /**
+     * 挂一个 1×1 像素、完全透明的悬浮窗。
+     *
+     * 为什么要真的挂一个窗口：很多国产 ROM 判断"这应用是不是在前台/重要"时，
+     * 看的是它有没有可见窗口，而不是只看权限。光有权限、不挂窗口，效果会打折。
+     *
+     * 这个窗口：1×1 像素、透明、不可点、不可聚焦、贴在左上角 —— 用户完全感知不到。
+     * 这条做法来自 MacroDroid 清单里的 android.permission.SYSTEM_ALERT_WINDOW。
+     */
+    private void ensureOverlay() {
+        if (overlayView != null) return;
+        if (!KeepAlive.canDrawOverlays(this)) return;
+        try {
+            WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+            if (wm == null) return;
+            View view = new View(this);
+            WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                    1, 1,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                    PixelFormat.TRANSLUCENT);
+            lp.gravity = Gravity.TOP | Gravity.START;
+            lp.x = 0;
+            lp.y = 0;
+            wm.addView(view, lp);
+            overlayView = view;
+            LogStore.add(this, "🪟 已挂上 1×1 透明悬浮窗（大幅提升存活优先级）");
+        } catch (Throwable t) {
+            LogStore.add(this, "⚠️ 悬浮窗挂载失败：" + shortMsg(t));
+        }
+    }
+
+    private void removeOverlay() {
+        if (overlayView == null) return;
+        try {
+            WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+            if (wm != null) wm.removeView(overlayView);
+        } catch (Throwable ignored) {
+            // 窗口可能已经被系统回收
+        }
+        overlayView = null;
+    }
 
     /**
      * 反复请求重绑通知监听，直到连上为止。
@@ -134,6 +186,9 @@ public class KeepAliveService extends Service {
         rebindAttempts = 0;
         handler.postDelayed(rebindLoop, 500);
 
+        // 有悬浮窗权限就挂一个 1×1 透明窗，让系统认为本应用"有可见窗口"
+        ensureOverlay();
+
         // 精确闹钟能不能用，直接决定"1 秒后复活"到底准不准
         try {
             boolean exact = true;
@@ -171,6 +226,7 @@ public class KeepAliveService extends Service {
     public void onDestroy() {
         sRunning = false;
         handler.removeCallbacks(rebindLoop);
+        removeOverlay();
         LogStore.add(this, "🛡️ 常驻服务被销毁，1 秒后自动重启");
         // 不管是被谁销毁的，都排一个重启闹钟 —— 宁可多起一次，也不要彻底死掉
         KeepAlive.scheduleRestart(this, 1000);

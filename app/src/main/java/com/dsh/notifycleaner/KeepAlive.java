@@ -135,6 +135,40 @@ public final class KeepAlive {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
+    // ==================== 悬浮窗（保活的关键一环） ====================
+
+    /**
+     * 有没有「显示在其他应用上层」权限。
+     *
+     * 为什么这个重要：国产 ROM 对"有悬浮窗权限"的应用明显更宽容 —— 不容易被杀。
+     * 这条是从 MacroDroid 的权限清单里发现的：它的 AndroidManifest 里就有
+     *     android.permission.SYSTEM_ALERT_WINDOW
+     * 而我们之前一直没有。
+     */
+    public static boolean canDrawOverlays(Context context) {
+        try {
+            return Settings.canDrawOverlays(context);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** 打开系统的「显示在其他应用上层」授权页。 */
+    public static void requestOverlay(Activity activity) {
+        try {
+            activity.startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + activity.getPackageName())));
+            return;
+        } catch (Throwable ignored) {
+            // 有些 ROM 不认带 package 的写法
+        }
+        try {
+            activity.startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION));
+        } catch (Throwable ignored) {
+            // 只能靠文字提示
+        }
+    }
+
     // ==================== 电池优化 ====================
 
     /** 当前是否已经在电池优化白名单里（在的话后台被杀的几率小很多）。 */

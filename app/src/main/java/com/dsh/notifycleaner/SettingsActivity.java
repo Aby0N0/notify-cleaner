@@ -46,6 +46,7 @@ public class SettingsActivity extends Activity {
     private TextView reconnect;
     private TextView deepFixHint;
     private TextView fgsState;
+    private TextView overlayBtn;
     private TextView batteryBtn;
     private TextView autostartBtn;
     private TextView keepAliveHint;
@@ -88,6 +89,7 @@ public class SettingsActivity extends Activity {
         reconnect = findViewById(R.id.reconnect);
         deepFixHint = findViewById(R.id.deepFixHint);
         fgsState = findViewById(R.id.fgsState);
+        overlayBtn = findViewById(R.id.overlayBtn);
         batteryBtn = findViewById(R.id.batteryBtn);
         autostartBtn = findViewById(R.id.autostartBtn);
         keepAliveHint = findViewById(R.id.keepAliveHint);
@@ -121,6 +123,14 @@ public class SettingsActivity extends Activity {
             openChannelSettings();
             findViewById(R.id.hideNotifWarn).setVisibility(View.VISIBLE);
             LogStore.add(this, "🔧 打开了常驻通知的渠道设置");
+        });
+
+        overlayBtn.setOnClickListener(v -> {
+            if (KeepAlive.canDrawOverlays(this)) {
+                Toast.makeText(this, R.string.overlay_granted, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            KeepAlive.requestOverlay(this);
         });
 
         batteryBtn.setOnClickListener(v -> {
@@ -271,7 +281,21 @@ public class SettingsActivity extends Activity {
         headerChip.setText(text);
     }
 
-    private void refreshKeepAlive() {        if (KeepAlive.isIgnoringBatteryOptimizations(this)) {
+    private void refreshKeepAlive() {
+        // 悬浮窗权限：这条是从 MacroDroid 清单里挖到的关键差异，做成最醒目的按钮
+        if (KeepAlive.canDrawOverlays(this)) {
+            overlayBtn.setText(R.string.overlay_granted);
+            overlayBtn.setTextColor(getColor(R.color.primary_dark));
+            overlayBtn.setBackgroundResource(R.drawable.bg_button_soft);
+            overlayBtn.setAlpha(0.7f);
+        } else {
+            overlayBtn.setText(R.string.overlay_grant);
+            overlayBtn.setTextColor(getColor(R.color.white));
+            overlayBtn.setBackgroundResource(R.drawable.bg_button_primary);
+            overlayBtn.setAlpha(1f);
+        }
+
+        if (KeepAlive.isIgnoringBatteryOptimizations(this)) {
             batteryBtn.setText(R.string.keepalive_battery_ok);
             batteryBtn.setTextColor(getColor(R.color.primary_dark));
             batteryBtn.setBackgroundResource(R.drawable.bg_button_soft);

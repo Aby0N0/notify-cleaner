@@ -25,6 +25,13 @@
         tools:ignore="ProtectedPermissions" />
     <!-- 监听网络变化广播（MacroDroid 的 crashguard 库也这么干） -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!--
+        「显示在其他应用上层」—— 保活的关键一环。
+        这条是从 MacroDroid 的权限清单里发现的：国产 ROM 对"有悬浮窗权限"的应用
+        明显更宽容，不容易被杀。只需要用户在设置里点一下，不需要 adb。
+        应用不会真的弹任何窗口，只挂一个 1×1 的透明点。
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:name=".App"

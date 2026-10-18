@@ -49,6 +49,10 @@
     <string name="fgs_checking">常驻服务：检查中…</string>
     <string name="fgs_running">常驻服务：运行中 ✓</string>
     <string name="fgs_stopped">常驻服务：没在跑 ✗ —— 这就是它会失效的原因</string>
+
+    <string name="overlay_grant">① 开启「悬浮窗」权限（最关键）</string>
+    <string name="overlay_granted">悬浮窗权限：已开启 ✓</string>
+    <string name="overlay_hint">国产系统对「有悬浮窗权限」的应用明显更宽容，不容易被杀。MacroDroid 的权限清单里就有这一条，我们之前没有 —— 这很可能就是差别所在。\n\n应用不会真的弹任何窗口，只挂一个 1×1 的透明点，完全看不见。</string>
     <string name="keepalive_hint">保住它靠两件事：一条前台服务，加上「被划掉之后 1 秒内自动重启」。MacroDroid 靠的也是同一招 —— 它的日志里写着 task removed - attempting to restart mechanism。\n\n通知栏会挂一条静默通知：有状态栏小图标，但不响、不震、不亮屏、不弹横幅。图标可以点下面隐藏掉，但实测藏掉之后更容易被系统杀。</string>
     <string name="keepalive_hide_notif">隐藏这条常驻通知（可能导致被杀）</string>
     <string name="keepalive_hide_warn">提醒：把渠道彻底关掉之后，系统很可能因此把本应用杀掉 —— MacroDroid 的文档也是这么说的。真遇到又开始失效，回这里重新打开就行。</string>
